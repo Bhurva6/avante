@@ -1,0 +1,34 @@
+Files/folders to delete for deployment:
+
+- .DS_Store
+- .git/
+- .qodo/
+- .venv/
+- .vercelignore
+- .vscode/
+- 00_START_HERE.md
+- DOCUMENTATION_INDEX.md
+- FINAL_CHECKLIST.md
+- FIX_SUMMARY.md
+- Procfile
+- REACT_CHILDREN_FIX.md
+- README_NEXTJS.md
+- SETUP_QUICK_REFERENCE.txt
+- VALIDATION_REPORT.md
+- __pycache__/
+- api_client.py
+- app.log
+- app_debug.log
+- app_debug_fixed.log
+- app_final.log
+- app_final2.log
+- build.sh
+- entrypoint.py
+- nixpacks.toml
+- pyproject.toml
+- railway.json
+- runtime.txt
+- users_database.json
+- vercel.json
+- wsgi.py
+- assets/

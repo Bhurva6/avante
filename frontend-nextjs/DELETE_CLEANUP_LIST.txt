@@ -1,0 +1,1 @@
+Delete node_modules/ only if you want a fresh install. Keep .next/, out/, src/, public/, package.json, etc.
