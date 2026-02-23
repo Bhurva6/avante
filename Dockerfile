@@ -32,9 +32,6 @@ RUN npm run build
 # Go back to app root
 WORKDIR /app
 
-# Make entrypoint executable
-RUN chmod +x entrypoint.py
-
 # Expose port (Railway sets PORT env var)
 EXPOSE 8080
 
