@@ -16,10 +16,10 @@ def setup_nextjs_frontend(app):
         setup_nextjs_frontend(app)
     """
     
-    # Enable CORS for all routes
+    # Enable CORS for all routes (allow all origins for production compatibility)
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000", "http://localhost:5000"],
+            "origins": "*",
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }

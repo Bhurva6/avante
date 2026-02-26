@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useDashboardStore, useAuthStore } from '@/lib/store';
 import Layout from '@/components/Layout';
 import { 
@@ -166,8 +167,16 @@ const MiniMetricCard: React.FC<{
 
 export default function DashboardPage() {
   const { dashboardMode, startDate, endDate, hideInnovative, hideAvante } = useDashboardStore();
-  const { allowedStates } = useAuthStore();
+  const { allowedStates, isAuthenticated } = useAuthStore();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
   const [stats, setStats] = useState<Stats>({ total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 });
   const [dealerData, setDealerData] = useState<DealerData[]>([]);
   const [stateData, setStateData] = useState<StateData[]>([]);

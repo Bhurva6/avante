@@ -1,26 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const FLASK_BASE = process.env.FLASK_URL || 'http://localhost:5000';
+
 export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const response = await fetch(
+      `${FLASK_BASE}/api/admin/users/${encodeURIComponent(params.id)}`,
+      { method: 'DELETE' }
+    );
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('Delete user proxy error:', error);
+    return NextResponse.json({ message: 'Cannot connect to backend server.' }, { status: 503 });
+  }
+}
+
+export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const userId = params.id;
-
-    // In production, delete user from database by userId
-    // For now, always return not found or success as appropriate
-    return NextResponse.json(
-      { message: 'User not found' },
-      { status: 404 }
+    const body = await request.json();
+    const response = await fetch(
+      `${FLASK_BASE}/api/admin/users/${encodeURIComponent(params.id)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }
     );
-
-    // Or, if you want to always return success:
-    // return NextResponse.json({ message: 'User deleted successfully' });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Error deleting user:', error);
-    return NextResponse.json(
-      { message: 'Error deleting user', error: String(error) },
-      { status: 500 }
-    );
+    console.error('Update user proxy error:', error);
+    return NextResponse.json({ message: 'Cannot connect to backend server.' }, { status: 503 });
   }
 }

@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { useDashboardStore } from '@/lib/store';
-import { formatDate, getQuickDateRange } from '@/lib/utils';
-import { Calendar, Settings, RefreshCw } from 'lucide-react';
+import { useDashboardStore, useAuthStore } from '@/lib/store';
+import { getQuickDateRange } from '@/lib/utils';
+import { Calendar, Settings, RefreshCw, User } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -20,30 +20,33 @@ export default function Sidebar({ isOpen }: SidebarProps) {
     setHideInnovative,
     setHideAvante,
   } = useDashboardStore();
+  const { username, userRole } = useAuthStore();
 
   const handleQuickDate = (period: string) => {
     const [start, end] = getQuickDateRange(period);
     setDateRange(start, end);
   };
 
+  const handleRefresh = () => {
+    // Force re-fetch by nudging the date range (same values trigger the effect)
+    const { startDate: s, endDate: e } = useDashboardStore.getState();
+    useDashboardStore.getState().setDateRange(s, e);
+  };
+
   return (
     <div className={`h-screen overflow-y-auto transition-all ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
       <div className="p-6 space-y-6">
-        {/* Authentication Section */}
+        {/* User Info */}
         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-lg border border-indigo-200">
-          <h3 className="font-semibold text-gray-900 mb-3">Authentication</h3>
-          <input
-            type="text"
-            placeholder="Username"
-            defaultValue="u2vp8kb"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            defaultValue="asdftuy#$%78@!"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0">
+              <User className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{username || 'User'}</p>
+              <p className="text-xs text-indigo-600 capitalize">{userRole}</p>
+            </div>
+          </div>
         </div>
 
         {/* Quick Date Range */}
@@ -90,7 +93,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
           </div>
         </div>
 
-        {/* Controls - Show appropriate filter based on dashboard mode */}
+        {/* Filters */}
         <div>
           <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
             <Settings className="w-4 h-4" />
@@ -109,7 +112,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                   <span className="text-sm text-gray-700">Hide Innovative</span>
                 </label>
                 <p className="text-xs text-gray-500 ml-6">
-                  Excludes dealers with "Innovative" in their name
+                  Excludes dealers with &quot;Innovative&quot; in their name
                 </p>
               </>
             ) : (
@@ -124,16 +127,19 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                   <span className="text-sm text-gray-700">Hide Avante</span>
                 </label>
                 <p className="text-xs text-gray-500 ml-6">
-                  Excludes dealers with "Avante" in their name
+                  Excludes dealers with &quot;Avante&quot; in their name
                 </p>
               </>
             )}
           </div>
         </div>
 
-        {/* Buttons */}
+        {/* Refresh */}
         <div className="space-y-2 pt-4 border-t border-gray-200">
-          <button className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+          <button
+            onClick={handleRefresh}
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+          >
             <RefreshCw className="w-4 h-4" />
             Refresh Data
           </button>

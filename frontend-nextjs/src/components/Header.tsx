@@ -3,7 +3,6 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboardStore, useAuthStore } from '@/lib/store';
-import { formatDate, getQuickDateRange } from '@/lib/utils';
 import { Menu, LogOut, Shield } from 'lucide-react';
 import AccessManagementModal from './AccessManagementModal';
 
@@ -76,8 +75,8 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
           {/* Right Actions - Access Management & Logout */}
           <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
-            {/* Access Management Button - Only show for admins */}
-            {userRole === 'admin' && (
+            {/* Access Management Button - Show for admins and superadmin */}
+            {(userRole === 'admin' || userRole === 'superadmin') && (
               <button
                 onClick={handleAccessManagement}
                 className="flex items-center gap-2 px-4 py-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600 font-medium hover:text-blue-700"

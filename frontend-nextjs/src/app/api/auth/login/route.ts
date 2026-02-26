@@ -1,30 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const FLASK_BASE = process.env.FLASK_URL || 'http://localhost:5000';
+
+// Proxy to Flask backend
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required.' },
-        { status: 400 }
-      );
-    }
-
-    // In production, find user by email or username in database
-    // For now, always return invalid credentials as a placeholder
-    return NextResponse.json(
-      { error: 'Invalid credentials. Please check your email/username and password.' },
-      { status: 401 }
-    );
-    // Or, if you want to always return success:
-    // return NextResponse.json({ success: true, user: { ... }, message: 'Login successful!' });
+    const response = await fetch(`${FLASK_BASE}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Error during login:', error);
-    return NextResponse.json(
-      { error: 'Login failed. Please try again.' },
-      { status: 500 }
-    );
+    console.error('Login proxy error:', error);
+    return NextResponse.json({ message: 'Cannot connect to backend server.' }, { status: 503 });
   }
 }

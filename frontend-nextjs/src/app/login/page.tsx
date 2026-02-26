@@ -5,6 +5,11 @@ import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { LogIn, UserPlus, Mail, Lock, User, MapPin } from 'lucide-react';
 
+// Flask backend URL — empty string means same origin (production), localhost in dev
+const API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
+  : '';
+
 export default function AuthPage() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -20,17 +25,13 @@ export default function AuthPage() {
   const { setCredentials } = useAuthStore();
   const router = useRouter();
 
-  // Superadmin credentials
-  const SUPERADMIN_USERNAME = 'u2vp8kb';
-  const SUPERADMIN_PASSWORD = 'asdftuy#$%78@!';
-
   const ALL_STATES = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
     'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
     'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
     'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
     'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-    'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
+    'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
   ];
 
   const filteredStates = ALL_STATES.filter(state =>
@@ -44,30 +45,25 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      // Check if credentials match superadmin
-      if (email === SUPERADMIN_USERNAME && password === SUPERADMIN_PASSWORD) {
-        // Login as admin with all states access
-        setCredentials(email, password, 'admin', ALL_STATES);
-        router.push('/dashboard');
-      } else {
-        // Try to authenticate with backend
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
+      const response = await fetch(`${API_BASE}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          setCredentials(email, password, data.role || 'user', data.states || []);
-          router.push('/dashboard');
-        } else {
-          const errorData = await response.json();
-          setError(errorData.message || 'Invalid credentials. Please try again.');
-        }
+      if (response.ok) {
+        const data = await response.json();
+        const role = data.role as 'superadmin' | 'admin' | 'user';
+        // superadmin/admin with state_access='all' gets empty states array (means all)
+        const states: string[] = data.states && data.states.length > 0 ? data.states : [];
+        setCredentials(data.email || email, password, role, states);
+        router.push('/');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Invalid credentials. Please try again.');
       }
-    } catch (err) {
-      setError('Login failed. Please try again.');
+    } catch {
+      setError('Cannot connect to server. Make sure Flask is running on port 5000.');
     } finally {
       setLoading(false);
     }
@@ -78,22 +74,18 @@ export default function AuthPage() {
     setError('');
     setSuccess('');
 
-    // Validation
     if (!fullName || !email || !password || !confirmPassword) {
       setError('Please fill in all fields');
       return;
     }
-
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
       return;
     }
-
     if (selectedStates.length === 0) {
       setError('Please select at least one state you need access to');
       return;
@@ -102,36 +94,26 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/signup', {
+      const response = await fetch(`${API_BASE}/api/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName,
-          email,
-          password,
-          requestedStates: selectedStates
-        })
+        body: JSON.stringify({ fullName, email, password, requestedStates: selectedStates }),
       });
 
       if (response.ok) {
-        setSuccess('✅ Sign up successful! Your access request has been sent to the admin. You will receive an email once approved.');
+        setSuccess('Sign up successful! Your access request has been sent to the admin. You will be notified once approved.');
         setFullName('');
         setEmail('');
         setPassword('');
         setConfirmPassword('');
         setSelectedStates([]);
-        
-        // Switch to sign in after 3 seconds
-        setTimeout(() => {
-          setMode('signin');
-          setSuccess('');
-        }, 3000);
+        setTimeout(() => { setMode('signin'); setSuccess(''); }, 3000);
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Sign up failed. Please try again.');
       }
-    } catch (err) {
-      setError('Sign up failed. Please try again.');
+    } catch {
+      setError('Cannot connect to server. Make sure Flask is running on port 5000.');
     } finally {
       setLoading(false);
     }
@@ -143,11 +125,7 @@ export default function AuthPage() {
         {/* Toggle Tabs */}
         <div className="flex border-b border-gray-200">
           <button
-            onClick={() => {
-              setMode('signin');
-              setError('');
-              setSuccess('');
-            }}
+            onClick={() => { setMode('signin'); setError(''); setSuccess(''); }}
             className={`flex-1 py-4 text-center font-medium transition-colors ${
               mode === 'signin'
                 ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600'
@@ -158,11 +136,7 @@ export default function AuthPage() {
             Sign In
           </button>
           <button
-            onClick={() => {
-              setMode('signup');
-              setError('');
-              setSuccess('');
-            }}
+            onClick={() => { setMode('signup'); setError(''); setSuccess(''); }}
             className={`flex-1 py-4 text-center font-medium transition-colors ${
               mode === 'signup'
                 ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600'
@@ -181,20 +155,17 @@ export default function AuthPage() {
               {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
             </h1>
             <p className="text-gray-600 mt-2 text-sm">
-              {mode === 'signin' 
-                ? 'Sign in to access your dashboard' 
+              {mode === 'signin'
+                ? 'Sign in to access your dashboard'
                 : 'Sign up to request dashboard access'}
             </p>
           </div>
 
-          {/* Success Message */}
           {success && (
             <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg text-sm">
               {success}
             </div>
           )}
-
-          {/* Error Message */}
           {error && (
             <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
               {error}
@@ -218,7 +189,6 @@ export default function AuthPage() {
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Lock className="w-4 h-4 inline mr-1" />
@@ -233,7 +203,6 @@ export default function AuthPage() {
                   required
                 />
               </div>
-
               <button
                 type="submit"
                 disabled={loading}
@@ -261,7 +230,6 @@ export default function AuthPage() {
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Mail className="w-4 h-4 inline mr-1" />
@@ -276,7 +244,6 @@ export default function AuthPage() {
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Lock className="w-4 h-4 inline mr-1" />
@@ -291,7 +258,6 @@ export default function AuthPage() {
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Lock className="w-4 h-4 inline mr-1" />
@@ -306,7 +272,6 @@ export default function AuthPage() {
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <MapPin className="w-4 h-4 inline mr-1" />
@@ -343,8 +308,6 @@ export default function AuthPage() {
                     </div>
                   )}
                 </div>
-
-                {/* Selected States Tags */}
                 <div className="flex flex-wrap gap-2 mt-3">
                   {selectedStates.map(state => (
                     <span
@@ -366,7 +329,6 @@ export default function AuthPage() {
                   Select states you need access to. Admin will review your request.
                 </p>
               </div>
-
               <button
                 type="submit"
                 disabled={loading}
@@ -377,11 +339,11 @@ export default function AuthPage() {
             </form>
           )}
 
-          {/* Footer Info */}
+          {/* Footer */}
           {mode === 'signin' && (
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <button
                   onClick={() => setMode('signup')}
                   className="text-indigo-600 hover:text-indigo-700 font-medium"
@@ -389,12 +351,8 @@ export default function AuthPage() {
                   Sign up here
                 </button>
               </p>
-              <p className="text-xs text-gray-500 mt-4">
-                Demo: Use u2vp8kb / asdftuy#$%78@! for admin access
-              </p>
             </div>
           )}
-
           {mode === 'signup' && (
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">

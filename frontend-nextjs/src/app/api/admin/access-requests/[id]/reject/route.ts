@@ -1,28 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const FLASK_BASE = process.env.FLASK_URL || 'http://localhost:5000';
+
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const requestId = params.id;
-
-    // In production, update database to reject access request with requestId
-    // For now, always return not found or success as a placeholder
-
-    // Example: return not found
-    return NextResponse.json(
-      { message: 'Access request not found' },
-      { status: 404 }
+    const response = await fetch(
+      `${FLASK_BASE}/api/admin/access-requests/${encodeURIComponent(params.id)}/reject`,
+      { method: 'POST' }
     );
-
-    // Or, if you want to always return success:
-    // return NextResponse.json({ message: 'Access request rejected' });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Error rejecting access request:', error);
-    return NextResponse.json(
-      { message: 'Error rejecting access request', error: String(error) },
-      { status: 500 }
-    );
+    console.error('Reject request proxy error:', error);
+    return NextResponse.json({ message: 'Cannot connect to backend server.' }, { status: 503 });
   }
 }

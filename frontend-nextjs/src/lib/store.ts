@@ -4,9 +4,9 @@ export interface AuthState {
   username: string;
   password: string;
   isAuthenticated: boolean;
-  userRole: 'admin' | 'user';
+  userRole: 'superadmin' | 'admin' | 'user';
   allowedStates: string[];
-  setCredentials: (username: string, password: string, role?: 'admin' | 'user', states?: string[]) => void;
+  setCredentials: (username: string, password: string, role?: 'superadmin' | 'admin' | 'user', states?: string[]) => void;
   logout: () => void;
   setAllowedStates: (states: string[]) => void;
 }
