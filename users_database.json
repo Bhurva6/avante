@@ -12,5 +12,39 @@
     "created_at": "2026-02-27T03:53:41.612826",
     "status": "active",
     "credentials_sent": true
+  },
+  "bhurvaxsharma.india@gmail.com": {
+    "name": "bhurvaxsharma.india",
+    "email": "bhurvaxsharma.india@gmail.com",
+    "password": "1e2b964463b222cb09438928a564ca2eecfb7de616eb3dbb5722169d826aaae3",
+    "role": "user",
+    "dashboard_access": [
+      "avante",
+      "iospl"
+    ],
+    "state_access": [
+      "Andhra Pradesh"
+    ],
+    "created_at": "2026-02-27T04:32:52.738693",
+    "status": "active",
+    "credentials_sent": false,
+    "updated_at": "2026-02-27T04:32:52.739767"
+  },
+  "bhurvaxsharma@gmail.com": {
+    "name": "Bhurva Sharma",
+    "email": "bhurvaxsharma@gmail.com",
+    "password": "1e2b964463b222cb09438928a564ca2eecfb7de616eb3dbb5722169d826aaae3",
+    "plain_password": "Hyderabad@2024",
+    "role": "user",
+    "dashboard_access": [],
+    "state_access": [],
+    "created_at": "2026-02-27T04:33:17.922041",
+    "status": "pending",
+    "credentials_sent": false,
+    "requested_states": [
+      "Telangana",
+      "Andhra Pradesh",
+      "Arunachal Pradesh"
+    ]
   }
 }

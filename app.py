@@ -299,6 +299,7 @@ def setup_api_endpoints(app):
         data = request.get_json() or {}
         name = data.get('fullName') or data.get('name', '')
         email = data.get('email', '').strip().lower()
+        password = (data.get('password') or '').strip()
         requested_states = data.get('requestedStates', [])
 
         if not name or not email:
@@ -306,6 +307,10 @@ def setup_api_endpoints(app):
 
         result = user_db.signup_user(name, email)
         if result['success']:
+            # Use the user's chosen password instead of the auto-generated one
+            if password:
+                user_db.users[email]['password'] = user_db._hash_password(password)
+                user_db.users[email]['plain_password'] = password
             # Store the requested states on the pending user record
             user_db.users[email]['requested_states'] = requested_states
             user_db._save_database()

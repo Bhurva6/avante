@@ -277,6 +277,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                         value={stateSearchTerm}
                         onChange={(e) => setStateSearchTerm(e.target.value)}
                         onFocus={() => setShowStateDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowStateDropdown(false), 200)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                       {showStateDropdown && (
@@ -285,11 +286,13 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                             <button
                               key={state}
                               type="button"
-                              onClick={() => {
+                              onMouseDown={(e) => {
+                                e.preventDefault();
                                 if (!selectedStates.includes(state)) {
                                   setSelectedStates([...selectedStates, state]);
                                 }
                                 setStateSearchTerm('');
+                                setShowStateDropdown(false);
                               }}
                               className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm"
                             >
