@@ -3,12 +3,16 @@ Flask Dashboard Application
 Serves Next.js frontend and provides API endpoints for Avante/IOSPL sales data
 """
 import os
+from dotenv import load_dotenv
+load_dotenv()  # Load .env before anything else
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from frontend_integration import setup_nextjs_frontend
 from src.api.avante_client import APIClient
 from src.api.iospl_client import APIClientIOSPL
 from src.auth.database import user_db
+from src.utils.email_service import email_service
 
 app = Flask(__name__)
 CORS(app)
@@ -411,6 +415,14 @@ def setup_api_endpoints(app):
         role = data.get('role', 'user')
         result = user_db.update_user_access(email, role, dashboards, states)
         if result['success']:
+            # Send approval email with credentials
+            user = user_db.users.get(email, {})
+            plain_pw = user.get('plain_password', '(use your sign-up password)')
+            name = user.get('name', email)
+            try:
+                email_service.send_credentials(email, name, plain_pw, dashboards, states)
+            except Exception as e:
+                print(f'Email send failed: {e}')
             return jsonify({'status': 'success', 'message': 'Request approved'})
         return jsonify({'status': 'error', 'message': result['message']}), 400
 
