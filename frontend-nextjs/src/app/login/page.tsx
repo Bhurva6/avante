@@ -56,7 +56,8 @@ export default function AuthPage() {
         const role = data.role as 'superadmin' | 'admin' | 'user';
         // superadmin/admin with state_access='all' gets empty states array (means all)
         const states: string[] = data.states && data.states.length > 0 ? data.states : [];
-        setCredentials(data.email || email, password, role, states);
+        const dashboards: string[] = data.dashboard_access && data.dashboard_access.length > 0 ? data.dashboard_access : [];
+        setCredentials(data.email || email, password, role, states, dashboards);
         router.push('/');
       } else {
         const errorData = await response.json();

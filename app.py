@@ -3,6 +3,7 @@ Flask Dashboard Application
 Serves Next.js frontend and provides API endpoints for Avante/IOSPL sales data
 """
 import os
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 load_dotenv()  # Load .env before anything else
 
@@ -109,6 +110,102 @@ def process_city_performance(sales_data):
         city_map[city]['total_quantity'] += sq
     result = list(city_map.values())
     result.sort(key=lambda x: x['total_sales'], reverse=True)
+    return result
+
+
+def _parse_api_date(date_str):
+    """Parse a DD-MM-YYYY date string; return None if invalid."""
+    try:
+        return datetime.strptime(date_str.strip(), '%d-%m-%Y')
+    except Exception:
+        return None
+
+
+def _compute_previous_period(start_str, end_str):
+    """Return the same-length period immediately before (start_str, end_str)."""
+    start = _parse_api_date(start_str)
+    end = _parse_api_date(end_str)
+    if not start or not end or end < start:
+        return None, None
+    duration = (end - start).days
+    prev_end = start - timedelta(days=1)
+    prev_start = prev_end - timedelta(days=duration)
+    return prev_start.strftime('%d-%m-%Y'), prev_end.strftime('%d-%m-%Y')
+
+
+def _build_non_billing_dealers(current_data, prev_data):
+    """
+    Compare two periods of sales data.
+    Returns dealers present in prev_data that have 50 %+ revenue decline in current_data.
+    """
+    # Aggregate current period by dealer
+    current_map = {}
+    for r in current_data:
+        name = (r.get('comp_nm') or 'Unknown').strip()
+        sv = float(r.get('SV', 0) or 0)
+        if name not in current_map:
+            current_map[name] = {
+                'total': 0.0,
+                'city': (r.get('city') or '').strip(),
+                'state': (r.get('state') or '').strip(),
+            }
+        current_map[name]['total'] += sv
+
+    # Aggregate previous period by dealer, track last billing date
+    prev_map = {}
+    for r in prev_data:
+        name = (r.get('comp_nm') or 'Unknown').strip()
+        sv = float(r.get('SV', 0) or 0)
+        raw_date = (r.get('create_date') or r.get('sale_date') or '').strip()
+        if name not in prev_map:
+            prev_map[name] = {
+                'total': 0.0,
+                'city': (r.get('city') or '').strip(),
+                'state': (r.get('state') or '').strip(),
+                'last_date': raw_date,
+            }
+        prev_map[name]['total'] += sv
+        if raw_date:
+            prev_map[name]['last_date'] = raw_date  # keep most-recent
+
+    today = datetime.now()
+    result = []
+    for dealer_name, prev_info in prev_map.items():
+        prev_sales = prev_info['total']
+        if prev_sales <= 0:
+            continue
+        current_sales = current_map.get(dealer_name, {}).get('total', 0.0)
+        decline_pct = ((prev_sales - current_sales) / prev_sales) * 100
+        if decline_pct < 50:
+            continue  # only include dealers with significant decline
+
+        # Parse last billing date
+        days_since = 0
+        last_billing_iso = None
+        raw_date = prev_info.get('last_date', '')
+        if raw_date:
+            dt = _parse_api_date(raw_date)
+            if not dt:
+                try:
+                    dt = datetime.strptime(raw_date[:10], '%Y-%m-%d')
+                except Exception:
+                    dt = None
+            if dt:
+                days_since = max(0, (today - dt).days)
+                last_billing_iso = dt.strftime('%Y-%m-%d')
+
+        result.append({
+            'dealer_name': dealer_name,
+            'city': prev_info.get('city', ''),
+            'state': prev_info.get('state', ''),
+            'last_billing_date': last_billing_iso,
+            'previous_period_sales': round(prev_sales, 2),
+            'current_period_sales': round(current_sales, 2),
+            'decline_percentage': round(decline_pct, 1),
+            'days_since_last_billing': days_since,
+        })
+
+    result.sort(key=lambda x: x['decline_percentage'], reverse=True)
     return result
 
 
@@ -252,6 +349,60 @@ def setup_api_endpoints(app):
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
             sales_data = api_response.get('report_data') or []
             return jsonify(process_city_performance(sales_data))
+        except Exception as e:
+            return jsonify([]), 500
+
+    @app.route('/api/avante/comparative-analysis', methods=['GET'])
+    def get_avante_comparative_analysis():
+        start_date = request.args.get('start_date', '01-01-2024')
+        end_date = request.args.get('end_date', '31-12-2025')
+        try:
+            api_response = APIClient().get_sales_report(start_date, end_date)
+            sales_data = api_response.get('report_data') or []
+            return jsonify({'status': 'success', 'report_data': sales_data})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e), 'report_data': []}), 500
+
+    @app.route('/api/iospl/comparative-analysis', methods=['GET'])
+    def get_iospl_comparative_analysis():
+        start_date = request.args.get('start_date', '01-01-2024')
+        end_date = request.args.get('end_date', '31-12-2025')
+        try:
+            api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
+            sales_data = api_response.get('report_data') or []
+            return jsonify({'status': 'success', 'report_data': sales_data})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e), 'report_data': []}), 500
+
+    @app.route('/api/avante/non-billing-dealers', methods=['GET'])
+    def get_avante_non_billing_dealers():
+        start_date = request.args.get('start_date', '01-01-2025')
+        end_date = request.args.get('end_date', '31-12-2025')
+        try:
+            current_resp = APIClient().get_sales_report(start_date, end_date)
+            current_data = current_resp.get('report_data') or []
+            prev_start, prev_end = _compute_previous_period(start_date, end_date)
+            prev_data = []
+            if prev_start and prev_end:
+                prev_resp = APIClient().get_sales_report(prev_start, prev_end)
+                prev_data = prev_resp.get('report_data') or []
+            return jsonify(_build_non_billing_dealers(current_data, prev_data))
+        except Exception as e:
+            return jsonify([]), 500
+
+    @app.route('/api/iospl/non-billing-dealers', methods=['GET'])
+    def get_iospl_non_billing_dealers():
+        start_date = request.args.get('start_date', '01-01-2025')
+        end_date = request.args.get('end_date', '31-12-2025')
+        try:
+            current_resp = APIClientIOSPL().get_sales_report(start_date, end_date)
+            current_data = current_resp.get('report_data') or []
+            prev_start, prev_end = _compute_previous_period(start_date, end_date)
+            prev_data = []
+            if prev_start and prev_end:
+                prev_resp = APIClientIOSPL().get_sales_report(prev_start, prev_end)
+                prev_data = prev_resp.get('report_data') or []
+            return jsonify(_build_non_billing_dealers(current_data, prev_data))
         except Exception as e:
             return jsonify([]), 500
 

@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useDashboardStore, useAuthStore } from '@/lib/store';
 import Layout from '@/components/Layout';
 import { 
-  RevenueBarChart, 
-  RevenuePieChart, 
+  RevenueBarChart,
+  RevenuePieChart,
   HorizontalBarChart,
-  DonutChart,
-  ComposedChartComponent 
+  ComposedChartComponent
 } from '@/components/Charts';
 import { ChartModal, ClickableChartWrapper, ChartConfig } from '@/components/ChartModal';
 import IndiaMap from '@/components/IndiaMap';
@@ -193,7 +192,6 @@ export default function DashboardPage() {
   const [rawCityData, setRawCityData] = useState<any[]>([]);
   const [rawStats, setRawStats] = useState<Stats>({ total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 });
   const [rawSalesData, setRawSalesData] = useState<any[]>([]);
-  const [rawDealerStateData, setRawDealerStateData] = useState<any[]>([]);
   
   // Original raw data (unfiltered)
   const [originalRawDealerData, setOriginalRawDealerData] = useState<any[]>([]);
@@ -205,9 +203,11 @@ export default function DashboardPage() {
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<ChartConfig | null>(null);
+  const [initialDrillDown, setInitialDrillDown] = useState<{ name: string; matchValue: string } | null>(null);
 
   // Function to open chart in fullscreen modal
-  const openChartModal = (config: ChartConfig) => {
+  const openChartModal = (config: ChartConfig, drillDown?: { name: string; matchValue: string } | null) => {
+    setInitialDrillDown(drillDown ?? null);
     setModalConfig(config);
     setModalOpen(true);
   };
@@ -254,7 +254,7 @@ export default function DashboardPage() {
       setStateData(processed);
     } else if (dataType === 'categories') {
       const processed = dataToProcess.slice(0, 10).map((c: any) => ({
-        name: c.product_name?.substring(0, 25) || 'Unknown',
+        name: c.product_name || 'Unknown',
         value: c.total_sales || 0
       }));
       setCategoryData(processed);
@@ -435,7 +435,7 @@ export default function DashboardPage() {
 
     // Process category data for display
     setCategoryData(filteredCategories.slice(0, 10).map((c: any) => ({
-      name: c.product_name?.substring(0, 25) || 'Unknown',
+      name: c.product_name || 'Unknown',
       value: c.total_sales || 0
     })));
 
@@ -590,21 +590,6 @@ export default function DashboardPage() {
         }
         setRawCityData(cityPerf);
         setOriginalRawCityData(cityPerf); // Set original raw city data
-
-        // Fetch dealer-state performance for state drill-down
-        let dealerStatePerf: any[] = [];
-        try {
-          const dealerStateResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/dealer-state-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
-          );
-          if (dealerStateResponse.ok) {
-            dealerStatePerf = await dealerStateResponse.json();
-            console.log('✅ Dealer-State data loaded:', dealerStatePerf.length, 'items');
-          }
-        } catch (error) {
-          console.error('❌ Dealer-State API failed:', error);
-        }
-        setRawDealerStateData(dealerStatePerf);
 
         // Fetch raw sales data for monthly trend
         let salesData = [];
@@ -871,14 +856,14 @@ export default function DashboardPage() {
               })),
               xKey: 'name',
               yKey: 'value',
-              drillDownData: rawDealerStateData,
+              drillDownData: rawCityData,
               drillDownConfig: {
                 matchKey: 'state',
                 matchValueKey: 'name',
-                displayKey: 'dealer_name',
+                displayKey: 'city',
                 valueKey: 'total_sales',
                 quantityKey: 'total_quantity',
-                childLabel: 'Dealers',
+                childLabel: 'Cities',
                 backLabel: 'Back to States',
               },
             })}
@@ -889,18 +874,44 @@ export default function DashboardPage() {
               xKey="name"
               yKey="value"
               loading={loading}
+              onBarClick={(barData) => {
+                const stateName = barData?.name;
+                if (!stateName) return;
+                const stateChartConfig = {
+                  type: 'bar' as const,
+                  title: '🗺️ Revenue by State (All States)',
+                  data: rawStateData.map((s: any) => ({
+                    name: s.state || 'Unknown',
+                    value: s.total_sales || 0,
+                    quantity: s.total_quantity || 0,
+                  })),
+                  xKey: 'name',
+                  yKey: 'value',
+                  drillDownData: rawCityData,
+                  drillDownConfig: {
+                    matchKey: 'state',
+                    matchValueKey: 'name',
+                    displayKey: 'city',
+                    valueKey: 'total_sales',
+                    quantityKey: 'total_quantity',
+                    childLabel: 'Cities',
+                    backLabel: 'Back to States',
+                  },
+                };
+                openChartModal(stateChartConfig, { name: stateName, matchValue: stateName });
+              }}
             />
           </ClickableChartWrapper>
         </div>
 
-        {/* Charts Row 3 - Products & Cities */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Charts Row 3 - Products */}
+        <div className="grid grid-cols-1 gap-6">
           <ClickableChartWrapper
             onClick={() => openChartModal({
               type: 'horizontalBar',
               title: '🏷️ All Products by Revenue',
               data: rawCategoryData.map((c: any) => ({
-                name: c.product_name?.substring(0, 30) || 'Unknown',
+                name: c.product_name || 'Unknown',
                 value: c.total_sales || 0
               })),
               xKey: 'name',
@@ -912,30 +923,6 @@ export default function DashboardPage() {
               title="🏷️ Top Products by Revenue"
               xKey="name"
               yKey="value"
-              loading={loading}
-            />
-          </ClickableChartWrapper>
-          <ClickableChartWrapper
-            onClick={() => openChartModal({
-              type: 'donut',
-              title: '🏙️ Revenue by City (All Cities)',
-              data: rawCityData.map((c: any) => ({
-                name: c.city || 'Unknown',
-                value: c.total_sales || 0,
-                state: c.state || ''
-              })),
-              xKey: 'name',
-              yKey: 'value',
-              dataKey: 'value',
-              nameKey: 'name',
-              legendBelow: true
-            })}
-          >
-            <DonutChart
-              data={cityData.slice(0, 8)}
-              title="🏙️ Revenue by City (Top 8)"
-              dataKey="value"
-              nameKey="name"
               loading={loading}
             />
           </ClickableChartWrapper>
@@ -999,11 +986,13 @@ export default function DashboardPage() {
           />
 
           {/* Non-Billing Dealers Table */}
-          <NonBillingDealersTable 
-            loading={loading} 
+          <NonBillingDealersTable
+            loading={loading}
             dashboardMode={dashboardMode}
             hideInnovative={hideInnovative}
             hideAvante={hideAvante}
+            startDate={startDate}
+            endDate={endDate}
           />
 
           {/* Top Dealers Table */}
@@ -1044,8 +1033,9 @@ export default function DashboardPage() {
       {/* Fullscreen Chart Modal */}
       <ChartModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setInitialDrillDown(null); }}
         config={modalConfig}
+        initialDrillDown={initialDrillDown}
       />
     </Layout>
   );

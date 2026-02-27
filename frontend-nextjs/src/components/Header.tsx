@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboardStore, useAuthStore } from '@/lib/store';
 import { Menu, LogOut, Shield } from 'lucide-react';
@@ -12,10 +12,26 @@ interface HeaderProps {
 
 export default function Header({ onToggleSidebar }: HeaderProps) {
   const router = useRouter();
-  const { logout, userRole } = useAuthStore();
+  const { logout, userRole, allowedDashboards } = useAuthStore();
   const dashboardMode = useDashboardStore((state) => state.dashboardMode);
   const setDashboardMode = useDashboardStore((state) => state.setDashboardMode);
   const [showAccessManagement, setShowAccessManagement] = React.useState(false);
+
+  // Determine which dashboards this user can access
+  // admins/superadmins always see both; regular users are limited to allowedDashboards
+  const isRestricted = userRole === 'user' && allowedDashboards.length > 0;
+  const canSeeAvante = !isRestricted || allowedDashboards.includes('avante');
+  const canSeeIospl  = !isRestricted || allowedDashboards.includes('iospl');
+
+  // Auto-switch to first accessible dashboard if current mode is not allowed
+  useEffect(() => {
+    if (!isRestricted) return;
+    if (dashboardMode === 'avante' && !canSeeAvante) {
+      setDashboardMode('iospl');
+    } else if (dashboardMode === 'iospl' && !canSeeIospl) {
+      setDashboardMode('avante');
+    }
+  }, [isRestricted, canSeeAvante, canSeeIospl, dashboardMode, setDashboardMode]);
 
   const handleLogout = () => {
     logout();
@@ -49,28 +65,32 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Dashboard Toggle */}
+          {/* Dashboard Toggle — only show buttons the user has access to */}
           <div className="flex gap-2">
-            <button
-              onClick={() => setDashboardMode('avante')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                dashboardMode === 'avante'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              🏢 Avante Dashboard
-            </button>
-            <button
-              onClick={() => setDashboardMode('iospl')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                dashboardMode === 'iospl'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              🛍️ IOSPL Dashboard
-            </button>
+            {canSeeAvante && (
+              <button
+                onClick={() => setDashboardMode('avante')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  dashboardMode === 'avante'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                🏢 Avante Dashboard
+              </button>
+            )}
+            {canSeeIospl && (
+              <button
+                onClick={() => setDashboardMode('iospl')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  dashboardMode === 'iospl'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                🛍️ IOSPL Dashboard
+              </button>
+            )}
           </div>
 
           {/* Right Actions - Access Management & Logout */}

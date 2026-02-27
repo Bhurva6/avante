@@ -20,6 +20,8 @@ interface NonBillingDealersTableProps {
   dashboardMode?: 'avante' | 'iospl';
   hideInnovative?: boolean;
   hideAvante?: boolean;
+  startDate?: string;
+  endDate?: string;
 }
 
 type TimeFilter = 'week' | 'month' | 'quarter' | 'year';
@@ -38,7 +40,9 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
   loading = false,
   dashboardMode = 'iospl',
   hideInnovative = false,
-  hideAvante = false
+  hideAvante = false,
+  startDate: propStartDate = '',
+  endDate: propEndDate = '',
 }) => {
   const [dealers, setDealers] = useState<NonBillingDealer[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('month');
@@ -47,10 +51,16 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
   const [stateFilter, setStateFilter] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'decline' | 'days' | 'city'>('decline');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  
-  // Local date range state
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+
+  // Local date range state — initialised from global sidebar props
+  const [startDate, setStartDate] = useState(propStartDate);
+  const [endDate, setEndDate] = useState(propEndDate);
+
+  // Keep in sync when sidebar dates change
+  useEffect(() => {
+    if (propStartDate) setStartDate(propStartDate);
+    if (propEndDate) setEndDate(propEndDate);
+  }, [propStartDate, propEndDate]);
 
   // Mock data for demonstration - in real app, this would come from API
   useEffect(() => {

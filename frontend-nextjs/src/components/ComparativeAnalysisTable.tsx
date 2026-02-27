@@ -126,39 +126,26 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
         const formattedStartDate = formatDateForAPI(localStartDate);
         const formattedEndDate = formatDateForAPI(localEndDate);
         
-        // Determine available years based on date range
-        const currentYear = new Date().getFullYear();
-        const startYear = startDate ? new Date(startDate).getFullYear() : currentYear - 4;
-        const endYearDate = endDate ? new Date(endDate).getFullYear() : currentYear;
-        
-        const years: string[] = [];
-        for (let year = endYearDate; year >= Math.max(startYear, endYearDate - 4); year--) {
-          years.push(year.toString());
-        }
-        
-        setAvailableYears(years);
-        setSelectedYears(years.slice(0, Math.min(2, years.length))); // Default to first 2 years
-        
         console.log(`📊 Fetching comparative analysis data for ${apiEndpoint}...`);
-        
+
         // Fetch comparative analysis data from API
         const response = await fetch(
           `${API_BASE}/api/${apiEndpoint}/comparative-analysis?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
         );
-        
+
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
-        
+
         const apiResponse = await response.json();
-        
+
         // Handle API response structure
         const apiData = apiResponse.report_data || apiResponse.data || [];
         console.log('✅ Comparative analysis data loaded:', apiData.length, 'records');
-        
+
         // Group data by dealer and year for year-wise comparison
         const groupedByDealer: { [key: string]: ComparativeDataRow } = {};
-        
+
         apiData.forEach((row: any) => {
           const dealerName = row.comp_nm || row.dealer_name || 'Unknown';
           const city = row.city || 'Unknown';
@@ -166,10 +153,10 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
           const category = row.category_name || row.category || row.parent_category || 'Unknown';
           const subCategory = row.meta_keyword || row.product_name || row.sub_category || 'Unknown';
           const productCode = row.meta_keyword || row.item_code || row.product_code || 'N/A';
-          
+
           // Create unique key for grouping
           const key = `${dealerName}|${city}|${state}|${category}|${subCategory}|${productCode}`;
-          
+
           if (!groupedByDealer[key]) {
             groupedByDealer[key] = {
               dealer_name: dealerName,
@@ -181,32 +168,51 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
               year_data: {}
             };
           }
-          
-          // Extract year from current date or use current year
-          const year = new Date().getFullYear().toString();
-          
+
+          // Extract year from create_date (DD-MM-YYYY format) or fall back to current year
+          const rawDate = (row.create_date || row.sale_date || '').toString().trim();
+          let year = new Date().getFullYear().toString();
+          if (rawDate) {
+            const ddmmyyyy = rawDate.match(/^\d{2}-\d{2}-(\d{4})/);
+            if (ddmmyyyy) {
+              year = ddmmyyyy[1];
+            } else {
+              const yyyyMatch = rawDate.match(/^(\d{4})/);
+              if (yyyyMatch) year = yyyyMatch[1];
+            }
+          }
+
           // Accumulate quantity and value
           const quantity = parseFloat(row.SQ || '0') || 0;
           const value = parseFloat(row.SV || '0') || 0;
-          
+
           if (!groupedByDealer[key].year_data[year]) {
             groupedByDealer[key].year_data[year] = { quantity: 0, value: 0 };
           }
-          
+
           groupedByDealer[key].year_data[year].quantity += quantity;
           groupedByDealer[key].year_data[year].value += value;
         });
-        
+
         // Convert grouped data back to array
         let transformedData: ComparativeDataRow[] = Object.values(groupedByDealer);
-        
+
         // Apply dealer filters
         if (dashboardMode === 'avante' && hideInnovative) {
           transformedData = transformedData.filter(row => !isInnovativeDealer(row.dealer_name));
         } else if (dashboardMode === 'iospl' && hideAvante) {
           transformedData = transformedData.filter(row => !isAvanteDealer(row.dealer_name));
         }
-        
+
+        // Derive available years from actual data so columns match reality
+        const dataYearSet = new Set<string>();
+        transformedData.forEach(row => Object.keys(row.year_data).forEach(y => dataYearSet.add(y)));
+        const sortedDataYears = Array.from(dataYearSet).sort().reverse();
+        if (sortedDataYears.length > 0) {
+          setAvailableYears(sortedDataYears);
+          setSelectedYears(sortedDataYears.slice(0, Math.min(2, sortedDataYears.length)));
+        }
+
         setData(transformedData);
         setFilteredData(transformedData);
         

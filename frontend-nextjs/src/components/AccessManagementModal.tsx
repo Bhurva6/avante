@@ -51,10 +51,12 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
+  const [selectedDashboards, setSelectedDashboards] = useState<string[]>(['avante', 'iospl']);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showStateDropdown, setShowStateDropdown] = useState(false);
   const [stateSearchTerm, setStateSearchTerm] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [requestDashboards, setRequestDashboards] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -96,6 +98,10 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
       alert('Please fill all fields and select at least one state');
       return;
     }
+    if (selectedDashboards.length === 0) {
+      alert('Please select at least one company (Avante or IOSPL)');
+      return;
+    }
     setSubmitLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/admin/users`, {
@@ -106,7 +112,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
           password: newUserPassword,
           states: selectedStates,
           role: 'user',
-          dashboard_access: ['avante', 'iospl'],
+          dashboard_access: selectedDashboards,
         }),
       });
       if (response.ok) {
@@ -114,6 +120,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
         setNewUserEmail('');
         setNewUserPassword('');
         setSelectedStates([]);
+        setSelectedDashboards(['avante', 'iospl']);
         setShowAddForm(false);
         loadUsers();
       } else {
@@ -147,6 +154,11 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
   };
 
   const handleApproveRequest = async (requestId: string, requestedStates: string[]) => {
+    const dashboards = requestDashboards[requestId] ?? ['avante', 'iospl'];
+    if (dashboards.length === 0) {
+      alert('Please select at least one company (Avante or IOSPL) before approving');
+      return;
+    }
     try {
       const response = await fetch(
         `${API_BASE}/api/admin/access-requests/${encodeURIComponent(requestId)}/approve`,
@@ -155,7 +167,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             states: requestedStates,
-            dashboard_access: ['avante', 'iospl'],
+            dashboard_access: dashboards,
             role: 'user',
           }),
         }
@@ -311,6 +323,28 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                       ))}
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Company Access</label>
+                    <div className="flex gap-4">
+                      {(['avante', 'iospl'] as const).map(d => (
+                        <label key={d} className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={selectedDashboards.includes(d)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDashboards([...selectedDashboards, d]);
+                              } else {
+                                setSelectedDashboards(selectedDashboards.filter(x => x !== d));
+                              }
+                            }}
+                            className="w-4 h-4 accent-blue-600"
+                          />
+                          <span className="text-sm text-gray-700">{d === 'avante' ? '🏢 Avante' : '🛍️ IOSPL'}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       type="submit"
@@ -321,7 +355,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setShowAddForm(false); setNewUserEmail(''); setNewUserPassword(''); setSelectedStates([]); }}
+                      onClick={() => { setShowAddForm(false); setNewUserEmail(''); setNewUserPassword(''); setSelectedStates([]); setSelectedDashboards(['avante', 'iospl']); }}
                       className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
                     >
                       Cancel
@@ -337,6 +371,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                       <th className="text-left px-4 py-3 font-medium text-gray-700">Email</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700">Role</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700">States</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-700">Companies</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700">Status</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700">Created</th>
                       <th className="text-center px-4 py-3 font-medium text-gray-700">Actions</th>
@@ -344,7 +379,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={6} className="text-center py-4 text-gray-500">Loading...</td></tr>
+                      <tr><td colSpan={7} className="text-center py-4 text-gray-500">Loading...</td></tr>
                     ) : users.length > 0 ? (
                       users.map(user => (
                         <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -371,6 +406,19 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                               )}
                             </div>
                           </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            <div className="flex flex-wrap gap-1">
+                              {(user.dashboard_access || []).length > 0 ? (
+                                (user.dashboard_access || []).map(d => (
+                                  <span key={d} className={`px-2 py-1 rounded text-xs font-medium ${d === 'avante' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'}`}>
+                                    {d === 'avante' ? 'Avante' : 'IOSPL'}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-gray-400 text-xs">All</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${
                               user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
@@ -392,7 +440,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan={6} className="text-center py-4 text-gray-500">No users found</td></tr>
+                      <tr><td colSpan={7} className="text-center py-4 text-gray-500">No users found</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -437,7 +485,32 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                         </div>
 
                         {request.status === 'pending' && (
-                          <div className="flex gap-2 ml-4">
+                          <div className="flex flex-col gap-3 ml-4 items-end">
+                            <div className="flex gap-3">
+                              {(['avante', 'iospl'] as const).map(d => {
+                                const current = requestDashboards[request.id] ?? ['avante', 'iospl'];
+                                return (
+                                  <label key={d} className="flex items-center gap-1.5 cursor-pointer select-none text-sm text-gray-700">
+                                    <input
+                                      type="checkbox"
+                                      checked={current.includes(d)}
+                                      onChange={(e) => {
+                                        const prev = requestDashboards[request.id] ?? ['avante', 'iospl'];
+                                        setRequestDashboards({
+                                          ...requestDashboards,
+                                          [request.id]: e.target.checked
+                                            ? [...prev, d]
+                                            : prev.filter(x => x !== d),
+                                        });
+                                      }}
+                                      className="w-4 h-4 accent-green-600"
+                                    />
+                                    {d === 'avante' ? '🏢 Avante' : '🛍️ IOSPL'}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            <div className="flex gap-2">
                             <button
                               onClick={() => handleApproveRequest(request.id, request.requestedStates || [])}
                               className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2"
@@ -452,6 +525,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                               <XCircle className="w-4 h-4" />
                               Reject
                             </button>
+                            </div>
                           </div>
                         )}
                       </div>

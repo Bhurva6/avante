@@ -67,9 +67,10 @@ interface ChartModalProps {
   isOpen: boolean;
   onClose: () => void;
   config: ChartConfig | null;
+  initialDrillDown?: { name: string; matchValue: string } | null;
 }
 
-export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config }) => {
+export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config, initialDrillDown }) => {
   const [selectedXKey, setSelectedXKey] = useState<string>('');
   const [selectedYKey, setSelectedYKey] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
@@ -91,8 +92,8 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config 
       setSelectedYKey(config.yKey || config.dataKey || config.barKey || '');
       setSearchQuery('');
       setHeaderSearchQuery('');
-      setDrillDownItem(null);
-      setShowTopN(false);
+      setDrillDownItem(initialDrillDown ?? null);
+      setShowTopN(config.type === 'horizontalBar' && config.data.length > 10);
       setIsHeaderFilterOpen(false);
       // Reset selected items when config changes - select all by default (only if filtering is enabled)
       if (!config.disableFiltering) {
@@ -101,7 +102,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config 
         setSelectedItems(allItems);
       }
     }
-  }, [config]);
+  }, [config, initialDrillDown]);
 
   // Focus search input when dropdown opens
   useEffect(() => {
@@ -256,12 +257,14 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config 
         // If drilled down, show breakdown as a horizontal bar chart
         if (drillDownItem && drillDownChartData) {
           const ddData = drillDownChartData;
+          const ddMaxLen = ddData.reduce((acc, d) => Math.max(acc, String(d.name || '').length), 0);
+          const ddYAxisWidth = Math.min(Math.max(ddMaxLen * 7, 80), 280);
           return (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ddData} layout="vertical" margin={{ top: 20, right: 60, left: 180, bottom: 20 }}>
+              <BarChart data={ddData} layout="vertical" margin={{ top: 20, right: 60, left: 8, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis type="number" tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
-                <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={170} />
+                <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={ddYAxisWidth} />
                 <Tooltip
                   formatter={(value: number, name: string) =>
                     name === 'revenue'
@@ -323,12 +326,14 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config 
         // If drilled down, show product breakdown for the selected dealer
         if (drillDownItem && drillDownChartData) {
           const ddData = drillDownChartData;
+          const ddMaxLen = ddData.reduce((acc, d) => Math.max(acc, String(d.name || '').length), 0);
+          const ddYAxisWidth = Math.min(Math.max(ddMaxLen * 7, 80), 280);
           return (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ddData} layout="vertical" margin={{ top: 20, right: 60, left: 180, bottom: 20 }}>
+              <BarChart data={ddData} layout="vertical" margin={{ top: 20, right: 60, left: 8, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis type="number" tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
-                <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={170} />
+                <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={ddYAxisWidth} />
                 <Tooltip
                   formatter={(value: number, name: string) =>
                     name === 'revenue'
@@ -360,12 +365,15 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config 
           ? [...data].sort((a, b) => (b[yKey] || 0) - (a[yKey] || 0)).slice(0, 10)
           : data;
 
+        const hbMaxLen = displayData.reduce((acc, d) => Math.max(acc, String(d[xKey] || '').length), 0);
+        const hbYAxisWidth = Math.min(Math.max(hbMaxLen * 7, 80), 280);
+
         return (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={displayData} layout="vertical" margin={{ top: 20, right: 30, left: 150, bottom: 20 }}>
+            <BarChart data={displayData} layout="vertical" margin={{ top: 20, right: 30, left: 8, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis type="number" tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
-              <YAxis type="category" dataKey={xKey} tick={{ fill: '#374151', fontSize: 12 }} width={140} />
+              <YAxis type="category" dataKey={xKey} tick={{ fill: '#374151', fontSize: 12 }} width={hbYAxisWidth} />
               <Tooltip formatter={(value: number) => formatTooltipValue(value)} />
               <Legend />
               <Bar
@@ -426,12 +434,14 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config 
         // If drilled down, show product breakdown as a horizontal bar chart
         if (drillDownItem && drillDownChartData) {
           const ddData = drillDownChartData;
+          const ddMaxLen = ddData.reduce((acc, d) => Math.max(acc, String(d.name || '').length), 0);
+          const ddYAxisWidth = Math.min(Math.max(ddMaxLen * 7, 80), 280);
           return (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ddData} layout="vertical" margin={{ top: 20, right: 60, left: 200, bottom: 20 }}>
+              <BarChart data={ddData} layout="vertical" margin={{ top: 20, right: 60, left: 8, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis type="number" tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
-                <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={190} />
+                <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={ddYAxisWidth} />
                 <Tooltip
                   formatter={(value: number, name: string) =>
                     name === 'revenue'
@@ -469,7 +479,10 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config 
                 innerRadius={type === 'donut' ? 80 : 0}
                 outerRadius={180}
                 paddingAngle={2}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                label={({ name, percent }: { name: string; percent: number }) => {
+                  const short = name.length > 14 ? name.substring(0, 13) + '…' : name;
+                  return `${short}: ${(percent * 100).toFixed(1)}%`;
+                }}
                 labelLine={{ stroke: '#374151' }}
                 onClick={canDrillDown ? handlePieSliceClick : undefined}
                 style={{ cursor: canDrillDown ? 'pointer' : 'default' }}
@@ -790,6 +803,35 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config 
                   ))}
                 </select>
               </div>
+
+              {/* Top 10 toggle — horizontal bar charts only */}
+              {config.type === 'horizontalBar' && allItemNames.length > 10 && (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-700">Show:</label>
+                  <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm font-medium">
+                    <button
+                      onClick={() => setShowTopN(true)}
+                      className={`px-3 py-1.5 transition-colors ${
+                        showTopN
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      Top 10
+                    </button>
+                    <button
+                      onClick={() => setShowTopN(false)}
+                      className={`px-3 py-1.5 border-l border-gray-300 transition-colors ${
+                        !showTopN
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      All ({allItemNames.length})
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Data Count Info */}
               <div className="flex items-center gap-2 text-sm text-gray-500">

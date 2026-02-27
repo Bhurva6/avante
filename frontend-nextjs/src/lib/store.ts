@@ -6,7 +6,8 @@ export interface AuthState {
   isAuthenticated: boolean;
   userRole: 'superadmin' | 'admin' | 'user';
   allowedStates: string[];
-  setCredentials: (username: string, password: string, role?: 'superadmin' | 'admin' | 'user', states?: string[]) => void;
+  allowedDashboards: string[];
+  setCredentials: (username: string, password: string, role?: 'superadmin' | 'admin' | 'user', states?: string[], dashboards?: string[]) => void;
   logout: () => void;
   setAllowedStates: (states: string[]) => void;
 }
@@ -17,9 +18,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   userRole: 'user',
   allowedStates: [],
-  setCredentials: (username: string, password: string, role = 'user', states = []) =>
-    set({ username, password, isAuthenticated: true, userRole: role, allowedStates: states }),
-  logout: () => set({ username: '', password: '', isAuthenticated: false, userRole: 'user', allowedStates: [] }),
+  allowedDashboards: [],
+  setCredentials: (username: string, password: string, role = 'user', states = [], dashboards = []) =>
+    set({ username, password, isAuthenticated: true, userRole: role, allowedStates: states, allowedDashboards: dashboards }),
+  logout: () => set({ username: '', password: '', isAuthenticated: false, userRole: 'user', allowedStates: [], allowedDashboards: [] }),
   setAllowedStates: (states: string[]) => set({ allowedStates: states }),
 }));
 

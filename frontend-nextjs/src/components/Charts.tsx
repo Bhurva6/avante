@@ -43,6 +43,7 @@ interface ChartProps {
   xKey: string;
   yKey: string;
   loading?: boolean;
+  onBarClick?: (data: any) => void;
 }
 
 export const RevenueLineChart: React.FC<ChartProps> = ({
@@ -78,6 +79,7 @@ export const RevenueBarChart: React.FC<ChartProps> = ({
   xKey,
   yKey,
   loading,
+  onBarClick,
 }) => {
   if (loading) return <ChartLoader title={title} />;
   if (!data || data.length === 0) return <ChartEmpty title={title} />;
@@ -85,20 +87,29 @@ export const RevenueBarChart: React.FC<ChartProps> = ({
   return (
     <div className="w-full h-80 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
       <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
+      {onBarClick && (
+        <p className="text-xs text-indigo-500 mb-1">💡 Click a bar to see dealers in that state</p>
+      )}
       <ResponsiveContainer width="100%" height="85%">
         <BarChart data={data} margin={{ top: 5, right: 30, left: 10, bottom: 60 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis 
-            dataKey={xKey} 
-            tick={{ fill: '#374151', fontSize: 10 }} 
-            angle={-45} 
-            textAnchor="end" 
+          <XAxis
+            dataKey={xKey}
+            tick={{ fill: '#374151', fontSize: 10 }}
+            angle={-45}
+            textAnchor="end"
             interval={0}
             height={60}
           />
           <YAxis tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
           <Tooltip formatter={(value: number) => formatTooltipValue(value)} />
-          <Bar dataKey={yKey} fill="#6366f1" radius={[4, 4, 0, 0]}>
+          <Bar
+            dataKey={yKey}
+            fill="#6366f1"
+            radius={[4, 4, 0, 0]}
+            onClick={onBarClick ? (barData) => onBarClick(barData) : undefined}
+            style={{ cursor: onBarClick ? 'pointer' : 'default' }}
+          >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
@@ -108,6 +119,10 @@ export const RevenueBarChart: React.FC<ChartProps> = ({
     </div>
   );
 };
+
+// Measures approximate pixel width of a string at a given font size (px)
+const measureTextWidth = (text: string, fontSize = 11): number =>
+  Math.ceil(text.length * fontSize * 0.6);
 
 export const HorizontalBarChart: React.FC<ChartProps> = ({
   data,
@@ -119,20 +134,30 @@ export const HorizontalBarChart: React.FC<ChartProps> = ({
   if (loading) return <ChartLoader title={title} />;
   if (!data || data.length === 0) return <ChartEmpty title={title} />;
 
+  // Dynamically size the Y-axis to fit the longest label
+  const maxLabelWidth = data.reduce(
+    (acc, d) => Math.max(acc, measureTextWidth(String(d[xKey] || ''))),
+    60
+  );
+  const yAxisWidth = Math.min(maxLabelWidth + 8, 280); // cap at 280 px
+
   return (
     <div className="w-full h-96 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
       <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
       <ResponsiveContainer width="100%" height="85%">
-        <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
+        <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 8, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis type="number" tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
-          <YAxis 
-            type="category" 
-            dataKey={xKey} 
-            tick={{ fill: '#374151', fontSize: 11 }} 
-            width={95}
+          <YAxis
+            type="category"
+            dataKey={xKey}
+            tick={{ fill: '#374151', fontSize: 11 }}
+            width={yAxisWidth}
           />
-          <Tooltip formatter={(value: number) => formatTooltipValue(value)} />
+          <Tooltip
+            formatter={(value: number) => formatTooltipValue(value)}
+            wrapperStyle={{ whiteSpace: 'normal', maxWidth: 300 }}
+          />
           <Bar dataKey={yKey} fill="#6366f1" radius={[0, 4, 4, 0]}>
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -161,23 +186,29 @@ export const RevenuePieChart: React.FC<{ data: any[]; title?: string; loading?: 
       <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
       <ResponsiveContainer width="100%" height="85%">
         <PieChart>
-          <Pie 
-            data={data} 
-            dataKey={dataKey} 
-            nameKey={nameKey} 
-            cx="50%" 
-            cy="50%" 
+          <Pie
+            data={data}
+            dataKey={dataKey}
+            nameKey={nameKey}
+            cx="50%"
+            cy="50%"
             innerRadius={40}
-            outerRadius={80} 
+            outerRadius={80}
             paddingAngle={2}
-            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+            label={({ name, percent }) => {
+              const short = name.length > 14 ? name.substring(0, 13) + '…' : name;
+              return `${short}: ${(percent * 100).toFixed(1)}%`;
+            }}
             labelLine={{ stroke: '#374151' }}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(value: number) => formatTooltipValue(value)} />
+          <Tooltip
+            formatter={(value: number, name: string) => [formatTooltipValue(value), name]}
+            wrapperStyle={{ whiteSpace: 'normal', maxWidth: 320 }}
+          />
         </PieChart>
       </ResponsiveContainer>
     </div>
