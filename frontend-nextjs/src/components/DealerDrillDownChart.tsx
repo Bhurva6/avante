@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { ArrowLeft, X, Maximize2, ChevronDown, Search, Check } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4'];
@@ -32,7 +32,10 @@ export const DealerDrillDownChart: React.FC<DealerDrillDownChartProps> = ({
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showAllLegends, setShowAllLegends] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const LEGEND_PAGE_SIZE = 10;
 
   // Calculate total sales for percentage calculation
   const totalSales = dealerData.reduce((sum, dealer) => sum + (dealer.total_sales || 0), 0);
@@ -69,6 +72,7 @@ export const DealerDrillDownChart: React.FC<DealerDrillDownChartProps> = ({
     const allItemNames = currentData.map(item => item.name);
     setSelectedItems(allItemNames);
     setSearchQuery('');
+    setShowAllLegends(false);
   }, [drillDownDealer, dealerData.length, categoryData.length]);
 
   // Close dropdown when clicking outside
@@ -272,7 +276,7 @@ export const DealerDrillDownChart: React.FC<DealerDrillDownChartProps> = ({
         </div>
       </div>
 
-      <div className={isFullscreen ? 'h-[600px]' : 'h-80'}>
+      <div className={isFullscreen ? 'h-[420px]' : 'h-80'}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -280,8 +284,8 @@ export const DealerDrillDownChart: React.FC<DealerDrillDownChartProps> = ({
               dataKey="value"
               nameKey="name"
               cx="50%"
-              cy={isFullscreen ? "45%" : "40%"}
-              outerRadius={isFullscreen ? 140 : 90}
+              cy="50%"
+              outerRadius={isFullscreen ? 130 : 90}
               innerRadius={0}
               paddingAngle={2}
               label={renderCustomLabel}
@@ -297,7 +301,7 @@ export const DealerDrillDownChart: React.FC<DealerDrillDownChartProps> = ({
                 />
               ))}
             </Pie>
-            <Tooltip 
+            <Tooltip
               formatter={formatTooltipValue}
               contentStyle={{
                 backgroundColor: 'rgba(255, 255, 255, 0.96)',
@@ -306,23 +310,41 @@ export const DealerDrillDownChart: React.FC<DealerDrillDownChartProps> = ({
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               }}
             />
-            {isFullscreen && (
-              <Legend 
-                layout="horizontal" 
-                align="center" 
-                verticalAlign="bottom"
-                wrapperStyle={{
-                  paddingTop: '20px',
-                  fontSize: '14px',
-                }}
-              />
-            )}
           </PieChart>
         </ResponsiveContainer>
       </div>
 
+      {/* Custom legend — fullscreen only */}
+      {isFullscreen && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 px-2">
+            {(showAllLegends ? filteredData : filteredData.slice(0, LEGEND_PAGE_SIZE)).map((item, index) => (
+              <div key={index} className="flex items-center gap-2 min-w-0">
+                <div
+                  className="w-3 h-3 rounded-sm flex-shrink-0"
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                />
+                <span className="text-xs text-gray-700 truncate" title={item.name}>{item.name}</span>
+              </div>
+            ))}
+          </div>
+          {filteredData.length > LEGEND_PAGE_SIZE && (
+            <div className="mt-2 text-center">
+              <button
+                onClick={() => setShowAllLegends(prev => !prev)}
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+              >
+                {showAllLegends
+                  ? 'See less'
+                  : `See more (${filteredData.length - LEGEND_PAGE_SIZE} more)`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {!drillDownDealer && isFullscreen && (
-        <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+        <div className="mt-3 pt-3 border-t border-gray-100 text-center">
           <p className="text-sm text-gray-600 font-medium">
             💡 Click on any dealer slice to see their product distribution
           </p>

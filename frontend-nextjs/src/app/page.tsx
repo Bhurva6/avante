@@ -193,6 +193,7 @@ export default function DashboardPage() {
   const [rawCityData, setRawCityData] = useState<any[]>([]);
   const [rawStats, setRawStats] = useState<Stats>({ total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 });
   const [rawSalesData, setRawSalesData] = useState<any[]>([]);
+  const [rawDealerStateData, setRawDealerStateData] = useState<any[]>([]);
   
   // Original raw data (unfiltered)
   const [originalRawDealerData, setOriginalRawDealerData] = useState<any[]>([]);
@@ -590,6 +591,21 @@ export default function DashboardPage() {
         setRawCityData(cityPerf);
         setOriginalRawCityData(cityPerf); // Set original raw city data
 
+        // Fetch dealer-state performance for state drill-down
+        let dealerStatePerf: any[] = [];
+        try {
+          const dealerStateResponse = await fetch(
+            `${API_BASE}/api/${apiEndpoint}/dealer-state-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+          );
+          if (dealerStateResponse.ok) {
+            dealerStatePerf = await dealerStateResponse.json();
+            console.log('✅ Dealer-State data loaded:', dealerStatePerf.length, 'items');
+          }
+        } catch (error) {
+          console.error('❌ Dealer-State API failed:', error);
+        }
+        setRawDealerStateData(dealerStatePerf);
+
         // Fetch raw sales data for monthly trend
         let salesData = [];
         try {
@@ -746,6 +762,7 @@ export default function DashboardPage() {
               // Use filtered dealer data in modal
               const chartDealers = rawDealerData.map((d: any) => ({
                 name: d.dealer_name?.substring(0, 25) || 'Unknown',
+                fullName: d.dealer_name || 'Unknown',
                 revenue: d.total_sales || 0,
                 quantity: d.total_quantity || 0
               }));
@@ -754,7 +771,17 @@ export default function DashboardPage() {
                 title: '🏆 All Dealers by Revenue',
                 data: chartDealers,
                 xKey: 'name',
-                yKey: 'revenue'
+                yKey: 'revenue',
+                drillDownData: rawCategoryData,
+                drillDownConfig: {
+                  matchKey: 'dealer_name',
+                  matchValueKey: 'fullName',
+                  displayKey: 'product_name',
+                  valueKey: 'total_sales',
+                  quantityKey: 'total_quantity',
+                  childLabel: 'Products',
+                  backLabel: 'Back to Dealers',
+                },
               });
             }}
           >
@@ -812,7 +839,17 @@ export default function DashboardPage() {
               xKey: 'name',
               yKey: 'value',
               dataKey: 'value',
-              nameKey: 'name'
+              nameKey: 'name',
+              drillDownData: rawCategoryData,
+              drillDownConfig: {
+                matchKey: 'parent_category',
+                matchValueKey: 'name',
+                displayKey: 'product_name',
+                valueKey: 'total_sales',
+                quantityKey: 'total_quantity',
+                childLabel: 'Products',
+                backLabel: 'Back to Categories',
+              },
             })}
           >
             <RevenuePieChart
@@ -833,7 +870,17 @@ export default function DashboardPage() {
                 quantity: s.total_quantity || 0
               })),
               xKey: 'name',
-              yKey: 'value'
+              yKey: 'value',
+              drillDownData: rawDealerStateData,
+              drillDownConfig: {
+                matchKey: 'state',
+                matchValueKey: 'name',
+                displayKey: 'dealer_name',
+                valueKey: 'total_sales',
+                quantityKey: 'total_quantity',
+                childLabel: 'Dealers',
+                backLabel: 'Back to States',
+              },
             })}
           >
             <RevenueBarChart
@@ -895,7 +942,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Product Family Analysis */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
           <ClickableChartWrapper
             onClick={() => openChartModal({
               type: 'pie',
@@ -912,42 +959,6 @@ export default function DashboardPage() {
               title="🏭 Revenue by Product Family"
               dataKey="value"
               nameKey="name"
-              loading={loading}
-            />
-          </ClickableChartWrapper>
-          <ClickableChartWrapper
-            onClick={() => openChartModal({
-              type: 'donut',
-              title: '📊 Product Family Distribution',
-              data: parentCategoryData,
-              xKey: 'name',
-              yKey: 'value',
-              dataKey: 'value',
-              nameKey: 'name'
-            })}
-          >
-            <DonutChart
-              data={parentCategoryData.slice(0, 6)}
-              title="📊 Top Product Families"
-              dataKey="value"
-              nameKey="name"
-              loading={loading}
-            />
-          </ClickableChartWrapper>
-          <ClickableChartWrapper
-            onClick={() => openChartModal({
-              type: 'bar',
-              title: '📦 Quantity by Product Family (All Families)',
-              data: parentCategoryQuantityData,
-              xKey: 'name',
-              yKey: 'value'
-            })}
-          >
-            <RevenueBarChart
-              data={parentCategoryQuantityData.slice(0, 6)}
-              title="📦 Quantity by Product Family"
-              xKey="name"
-              yKey="value"
               loading={loading}
             />
           </ClickableChartWrapper>
