@@ -422,6 +422,7 @@ export default function DashboardPage() {
     })));
     setCombinedDealerData(filteredDealers.slice(0, 10).map((d: any) => ({
       name: d.dealer_name?.substring(0, 20) || 'Unknown',
+      fullName: d.dealer_name || 'Unknown',
       revenue: d.total_sales || 0,
       quantity: d.total_quantity || 0
     })));
@@ -761,10 +762,10 @@ export default function DashboardPage() {
                 drillDownConfig: {
                   matchKey: 'dealer_name',
                   matchValueKey: 'fullName',
-                  displayKey: 'product_name',
+                  displayKey: 'parent_category',
                   valueKey: 'total_sales',
                   quantityKey: 'total_quantity',
-                  childLabel: 'Products',
+                  childLabel: 'Parent Categories',
                   backLabel: 'Back to Dealers',
                 },
               });
@@ -804,6 +805,32 @@ export default function DashboardPage() {
               barKey="revenue"
               lineKey="quantity"
               loading={loading}
+              onBarClick={(barData) => {
+                const fullDealerName = barData.fullName || barData.name;
+                // Aggregate rawCategoryData by parent_category for this dealer only
+                const catMap: Record<string, { revenue: number; quantity: number }> = {};
+                rawCategoryData.forEach((c: any) => {
+                  if (
+                    c.dealer_name === fullDealerName ||
+                    c.dealer_name?.toLowerCase() === fullDealerName?.toLowerCase()
+                  ) {
+                    const key = c.parent_category || 'Other';
+                    if (!catMap[key]) catMap[key] = { revenue: 0, quantity: 0 };
+                    catMap[key].revenue += c.total_sales || 0;
+                    catMap[key].quantity += c.total_quantity || 0;
+                  }
+                });
+                const drilldownData = Object.entries(catMap)
+                  .map(([name, vals]) => ({ name, revenue: vals.revenue, quantity: vals.quantity }))
+                  .sort((a, b) => b.revenue - a.revenue);
+                openChartModal({
+                  type: 'horizontalBar',
+                  title: `📦 ${barData.name} — Parent Product Distribution`,
+                  data: drilldownData,
+                  xKey: 'name',
+                  yKey: 'revenue',
+                });
+              }}
             />
           </ClickableChartWrapper>
           <DealerDrillDownWrapper

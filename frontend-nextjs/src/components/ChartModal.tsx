@@ -323,32 +323,55 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
       }
 
       case 'horizontalBar': {
-        // If drilled down, show product breakdown for the selected dealer
+        // If drilled down, show parent category breakdown for the selected dealer
         if (drillDownItem && drillDownChartData) {
           const ddData = drillDownChartData;
           const ddMaxLen = ddData.reduce((acc, d) => Math.max(acc, String(d.name || '').length), 0);
           const ddYAxisWidth = Math.min(Math.max(ddMaxLen * 7, 80), 280);
+          const totalRevenue = ddData.reduce((sum, d) => sum + d.revenue, 0);
+          const totalQuantity = ddData.reduce((sum, d) => sum + d.quantity, 0);
           return (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ddData} layout="vertical" margin={{ top: 20, right: 60, left: 8, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis type="number" tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
-                <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={ddYAxisWidth} />
-                <Tooltip
-                  formatter={(value: number, name: string) =>
-                    name === 'revenue'
-                      ? [formatTooltipValue(value), 'Revenue']
-                      : [value.toLocaleString('en-IN'), 'Quantity']
-                  }
-                />
-                <Legend />
-                <Bar dataKey="revenue" radius={[0, 4, 4, 0]} name="Revenue">
-                  {ddData.map((_, index) => (
-                    <Cell key={`dd-cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="flex flex-col h-full">
+              {/* Dealer total summary */}
+              <div className="flex items-center justify-center gap-8 py-2 px-4 mb-2 bg-indigo-50 rounded-lg border border-indigo-100 flex-shrink-0">
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Total Revenue</p>
+                  <p className="text-lg font-bold text-indigo-600">{formatTooltipValue(totalRevenue)}</p>
+                </div>
+                <div className="w-px h-10 bg-indigo-200" />
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Total Quantity</p>
+                  <p className="text-lg font-bold text-gray-700">{totalQuantity.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="w-px h-10 bg-indigo-200" />
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Categories</p>
+                  <p className="text-lg font-bold text-gray-700">{ddData.length}</p>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ddData} layout="vertical" margin={{ top: 10, right: 60, left: 8, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis type="number" tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={ddYAxisWidth} />
+                    <Tooltip
+                      formatter={(value: number, name: string) =>
+                        name === 'revenue'
+                          ? [formatTooltipValue(value), 'Revenue']
+                          : [value.toLocaleString('en-IN'), 'Quantity']
+                      }
+                    />
+                    <Legend />
+                    <Bar dataKey="revenue" radius={[0, 4, 4, 0]} name="Revenue">
+                      {ddData.map((_, index) => (
+                        <Cell key={`dd-cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           );
         }
 

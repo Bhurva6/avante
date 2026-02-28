@@ -295,13 +295,14 @@ export const AreaChartComponent: React.FC<ChartProps> = ({
   );
 };
 
-export const ComposedChartComponent: React.FC<{ data: any[]; title?: string; xKey: string; barKey: string; lineKey: string; loading?: boolean }> = ({
+export const ComposedChartComponent: React.FC<{ data: any[]; title?: string; xKey: string; barKey: string; lineKey: string; loading?: boolean; onBarClick?: (data: any) => void }> = ({
   data,
   title = 'Combined Analysis',
   xKey,
   barKey,
   lineKey,
   loading,
+  onBarClick,
 }) => {
   if (loading) return <ChartLoader title={title} />;
   if (!data || data.length === 0) return <ChartEmpty title={title} />;
@@ -309,6 +310,9 @@ export const ComposedChartComponent: React.FC<{ data: any[]; title?: string; xKe
   return (
     <div className="w-full h-80 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
       <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
+      {onBarClick && (
+        <p className="text-xs text-indigo-500 mb-1">💡 Click a bar to see parent product distribution for that dealer</p>
+      )}
       <ResponsiveContainer width="100%" height="85%">
         <ComposedChart data={data} margin={{ top: 5, right: 30, left: 10, bottom: 60 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -317,7 +321,15 @@ export const ComposedChartComponent: React.FC<{ data: any[]; title?: string; xKe
           <YAxis yAxisId="right" orientation="right" tick={{ fill: '#374151', fontSize: 12 }} />
           <Tooltip formatter={(value: number, name: string) => [name === barKey ? formatTooltipValue(value) : value.toLocaleString(), name]} />
           <Legend />
-          <Bar yAxisId="left" dataKey={barKey} fill="#6366f1" radius={[4, 4, 0, 0]} name="Revenue" />
+          <Bar
+            yAxisId="left"
+            dataKey={barKey}
+            fill="#6366f1"
+            radius={[4, 4, 0, 0]}
+            name="Revenue"
+            onClick={onBarClick ? (barData) => onBarClick(barData) : undefined}
+            style={{ cursor: onBarClick ? 'pointer' : 'default' }}
+          />
           <Line yAxisId="right" type="monotone" dataKey={lineKey} stroke="#f97316" strokeWidth={2} name="Quantity" />
         </ComposedChart>
       </ResponsiveContainer>
