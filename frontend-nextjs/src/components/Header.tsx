@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboardStore, useAuthStore } from '@/lib/store';
 import { Menu, LogOut, Shield } from 'lucide-react';
-import AccessManagementModal from './AccessManagementModal';
+
+// Lazy load AccessManagementModal to avoid circular dependencies
+const AccessManagementModal = lazy(() => import('./AccessManagementModal'));
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -123,10 +125,12 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
       </div>
 
       {/* Access Management Modal */}
-      <AccessManagementModal
-        isOpen={showAccessManagement}
-        onClose={() => setShowAccessManagement(false)}
-      />
+      <Suspense fallback={null}>
+        <AccessManagementModal
+          isOpen={showAccessManagement}
+          onClose={() => setShowAccessManagement(false)}
+        />
+      </Suspense>
     </header>
   );
 }

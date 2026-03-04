@@ -9,6 +9,7 @@ load_dotenv()  # Load .env before anything else
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from functools import wraps
 from frontend_integration import setup_nextjs_frontend
 from src.api.avante_client import APIClient
 from src.api.iospl_client import APIClientIOSPL
@@ -18,6 +19,30 @@ from src.utils.email_service import email_service
 app = Flask(__name__)
 CORS(app)
 setup_nextjs_frontend(app)
+
+
+# ─────────────────────────────────────────────
+# Authorization helper
+# ─────────────────────────────────────────────
+
+def require_superadmin(f):
+    """Decorator to require superadmin authorization"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Get the user email from request headers or query params
+        auth_header = request.headers.get('X-User-Email', '').strip().lower()
+        query_email = request.args.get('user_email', '').strip().lower()
+        user_email = auth_header or query_email or ''
+        
+        if not user_email:
+            return jsonify({'status': 'error', 'message': 'Unauthorized: Missing user email'}), 401
+        
+        user = user_db.get_user(user_email)
+        if not user or user.get('role') != 'superadmin':
+            return jsonify({'status': 'error', 'message': 'Unauthorized: Only superadmin can perform this action'}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 # ─────────────────────────────────────────────
@@ -465,6 +490,10 @@ def setup_api_endpoints(app):
             # Store the requested states on the pending user record
             user_db.users[email]['requested_states'] = requested_states
             user_db._save_database()
+            
+            # Send access request notification to admin
+            email_service.send_access_request_notification(email, name, requested_states)
+            
             return jsonify({
                 'status': 'success',
                 'message': 'Access request submitted. Admin will review and notify you.',
@@ -474,6 +503,7 @@ def setup_api_endpoints(app):
     # ── User management endpoints ─────────────
 
     @app.route('/api/admin/users', methods=['GET'])
+    @require_superadmin
     def get_users():
         all_users = user_db.get_all_users()
         active = [
@@ -496,6 +526,7 @@ def setup_api_endpoints(app):
         return jsonify({'users': active})
 
     @app.route('/api/admin/users', methods=['POST'])
+    @require_superadmin
     def create_user():
         data = request.get_json() or {}
         email = data.get('email', '').strip().lower()
@@ -527,6 +558,7 @@ def setup_api_endpoints(app):
         }), 201
 
     @app.route('/api/admin/users/<path:email>', methods=['PUT'])
+    @require_superadmin
     def update_user_endpoint(email):
         data = request.get_json() or {}
         role = data.get('role', 'user')
@@ -538,7 +570,14 @@ def setup_api_endpoints(app):
         return jsonify({'status': 'error', 'message': result['message']}), 400
 
     @app.route('/api/admin/users/<path:email>', methods=['DELETE'])
+    @require_superadmin
     def delete_user_endpoint(email):
+        # Get user info before deletion to send revocation email
+        if email in user_db.users:
+            user_name = user_db.users[email].get('name', 'User')
+            # Send access revocation email
+            email_service.send_access_revoked_email(email, user_name)
+        
         result = user_db.delete_user(email)
         if result['success']:
             return jsonify({'status': 'success', 'message': result['message']})
@@ -547,6 +586,7 @@ def setup_api_endpoints(app):
     # ── Access Request endpoints ──────────────
 
     @app.route('/api/admin/access-requests', methods=['GET'])
+    @require_superadmin
     def get_access_requests():
         all_users = user_db.get_all_users()
         pending = [
@@ -563,6 +603,7 @@ def setup_api_endpoints(app):
         return jsonify({'requests': pending})
 
     @app.route('/api/admin/access-requests/<path:request_id>/approve', methods=['POST'])
+    @require_superadmin
     def approve_access_request(request_id):
         email = request_id
         data = request.get_json() or {}
@@ -583,9 +624,15 @@ def setup_api_endpoints(app):
         return jsonify({'status': 'error', 'message': result['message']}), 400
 
     @app.route('/api/admin/access-requests/<path:request_id>/reject', methods=['POST'])
+    @require_superadmin
     def reject_access_request(request_id):
         email = request_id
         if email in user_db.users:
+            user_name = user_db.users[email].get('name', 'User')
+            
+            # Send rejection email to user
+            email_service.send_access_rejected_email(email, user_name)
+            
             user_db.users[email]['status'] = 'rejected'
             user_db._save_database()
             return jsonify({'status': 'success', 'message': 'Request rejected'})

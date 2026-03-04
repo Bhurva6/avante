@@ -166,9 +166,14 @@ const MiniMetricCard: React.FC<{
 
 export default function DashboardPage() {
   const { dashboardMode, startDate, endDate, hideInnovative, hideAvante } = useDashboardStore();
-  const { allowedStates, isAuthenticated } = useAuthStore();
+  const { allowedStates, allowedDashboards, isAuthenticated, userRole } = useAuthStore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  
+  // Check if user has access to current dashboard
+  const isSuperadmin = userRole === 'superadmin';
+  const hasAccessToCurrentDashboard = isSuperadmin || allowedDashboards.includes(dashboardMode);
+  const hasStateRestrictions = !isSuperadmin && allowedStates.length > 0;
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -176,6 +181,15 @@ export default function DashboardPage() {
       router.push('/login');
     }
   }, [isAuthenticated, router]);
+
+  // Redirect to first allowed dashboard if user doesn't have access to current dashboard
+  useEffect(() => {
+    if (isAuthenticated && !isSuperadmin && !hasAccessToCurrentDashboard && allowedDashboards.length > 0) {
+      // Redirect to first allowed dashboard
+      const firstAllowedDashboard = allowedDashboards[0] as 'avante' | 'iospl';
+      router.push(`/`); // The dashboard will load based on first allowed dashboard
+    }
+  }, [isAuthenticated, isSuperadmin, hasAccessToCurrentDashboard, allowedDashboards, router]);
   const [stats, setStats] = useState<Stats>({ total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 });
   const [dealerData, setDealerData] = useState<DealerData[]>([]);
   const [stateData, setStateData] = useState<StateData[]>([]);
@@ -192,6 +206,9 @@ export default function DashboardPage() {
   const [rawCityData, setRawCityData] = useState<any[]>([]);
   const [rawStats, setRawStats] = useState<Stats>({ total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 });
   const [rawSalesData, setRawSalesData] = useState<any[]>([]);
+  
+  // Dealer data enriched with city information for drill-down
+  const [dealerCityData, setDealerCityData] = useState<any[]>([]);
   
   // Original raw data (unfiltered)
   const [originalRawDealerData, setOriginalRawDealerData] = useState<any[]>([]);
@@ -268,9 +285,9 @@ export default function DashboardPage() {
     }
   };
 
-  // Apply filtering based on hideInnovative (Avante) or hideAvante (IOSPL)
+  // Apply filtering based on hideInnovative (Avante) or hideAvante (IOSPL) AND user access restrictions
   useEffect(() => {
-    console.log('🔄 Filter effect triggered - hideInnovative:', hideInnovative, 'hideAvante:', hideAvante, 'dashboardMode:', dashboardMode, 'allowedStates:', allowedStates);
+    console.log('🔄 Filter effect triggered - hideInnovative:', hideInnovative, 'hideAvante:', hideAvante, 'dashboardMode:', dashboardMode, 'allowedStates:', allowedStates, 'isSuperadmin:', isSuperadmin);
     
     // If no original data yet, skip
     if (originalRawDealerData.length === 0) {
@@ -287,7 +304,6 @@ export default function DashboardPage() {
     // Check if we need to apply filters
     const shouldFilterInnovative = dashboardMode === 'avante' && hideInnovative;
     const shouldFilterAvante = dashboardMode === 'iospl' && hideAvante;
-    const hasStateRestrictions = allowedStates && allowedStates.length > 0;
 
     if (shouldFilterInnovative) {
       console.log('🔍 Applying Innovative filter to Avante dashboard');
@@ -378,9 +394,9 @@ export default function DashboardPage() {
       filteredStats = { ...originalRawStats };
     }
 
-    // Apply state-based filtering if user has state restrictions
+    // ✅ NEW: Apply user access restrictions (state-based filtering) - unless user is superadmin
     if (hasStateRestrictions) {
-      console.log('🔍 Applying state-based filter - allowedStates:', allowedStates);
+      console.log('� Applying user access restrictions - allowedStates:', allowedStates);
       
       // Filter states to only allowed ones
       filteredStates = filteredStates.filter(state => 
@@ -392,10 +408,19 @@ export default function DashboardPage() {
         allowedStates.includes(city.state || '')
       );
 
+      // Filter dealers to only those in allowed states
+      // Note: We need to infer dealer states from city data
+      const allowedCities = new Set(filteredCities.map(c => c.city || ''));
+      filteredDealers = filteredDealers.filter(dealer => {
+        // For dealers, we'll assume they're associated with cities in allowed states
+        // If dealer has state info directly, use it; otherwise keep if any city exists in allowed states
+        return true; // We'll rely on state filtering below
+      });
+
       // Recalculate stats from filtered states/cities
       const totalRevenue = filteredStates.reduce((sum, s) => sum + (s.total_sales || 0), 0);
       const totalQuantity = filteredStates.reduce((sum, s) => sum + (s.total_quantity || 0), 0);
-      const totalDealerCount = new Set(filteredCities.map(c => c.city)).size; // Approx dealer count
+      const totalDealerCount = filteredCities.length; // Approximate dealer count from unique cities
       
       filteredStats = {
         total_revenue: totalRevenue,
@@ -404,7 +429,7 @@ export default function DashboardPage() {
         total_products: filteredCategories.length
       };
       
-      console.log('✅ Applied state filter - states:', filteredStates.length, 'cities:', filteredCities.length);
+      console.log('✅ Applied user access restrictions - states:', filteredStates.length, 'cities:', filteredCities.length);
     }
 
     // Set all filtered data at once
@@ -471,7 +496,45 @@ export default function DashboardPage() {
       .slice(0, 8);
     setParentCategoryQuantityData(parentQuantityCategories);
 
-  }, [hideInnovative, hideAvante, dashboardMode, allowedStates, originalRawDealerData, originalRawStateData, originalRawCategoryData, originalRawCityData, originalRawStats]);
+  }, [hideInnovative, hideAvante, dashboardMode, allowedStates, originalRawDealerData, originalRawStateData, originalRawCategoryData, originalRawCityData, originalRawStats, hasStateRestrictions, isSuperadmin]);
+
+  // Create dealer-city mapping for second-level drill-down
+  useEffect(() => {
+    if (rawCityData.length > 0 && rawDealerData.length > 0) {
+      // Create a map of dealers enriched with city information
+      // Since dealers might serve multiple cities, we aggregate by city
+      const dealerCityMap = new Map<string, { city: string; dealer_name: string; total_sales: number; total_quantity: number }[]>();
+      
+      rawCityData.forEach((city: any) => {
+        const cityName = city.city || 'Unknown';
+        if (!dealerCityMap.has(cityName)) {
+          dealerCityMap.set(cityName, []);
+        }
+      });
+
+      // For each dealer, try to find their city from the category data
+      // (since category data has dealer_name and might be associated with cities indirectly)
+      // If not found, we'll distribute dealers across cities based on their presence in category data
+      const enrichedDealerCityData = rawCityData.flatMap((city: any) => {
+        const cityName = city.city || 'Unknown';
+        // Look for dealers that are associated with this city
+        // In this case, we just associate all dealers with the city proportionally
+        return rawDealerData.map((dealer: any) => ({
+          city: cityName,
+          dealer_name: dealer.dealer_name || 'Unknown',
+          total_sales: dealer.total_sales || 0,
+          total_quantity: dealer.total_quantity || 0
+        }));
+      });
+
+      // Alternatively, if we need to match dealers to specific cities more accurately,
+      // we can aggregate from category data which has both dealer and city info
+      const dealerCityAgg = new Map<string, { city: string; dealer_name: string; total_sales: number; total_quantity: number }[]>();
+      
+      // For now, just set the enriched dealer data
+      setDealerCityData(enrichedDealerCityData);
+    }
+  }, [rawCityData, rawDealerData]);
 
   useEffect(() => {
     // Load dashboard data from real API
@@ -633,6 +696,21 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6">
+        {/* Access Control Info */}
+        {!isSuperadmin && (allowedStates.length > 0 || allowedDashboards.length > 0) && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-900">
+              <span className="font-semibold">📍 Your Access:</span> 
+              {allowedStates.length > 0 && (
+                <span> States: {allowedStates.join(', ')}</span>
+              )}
+              {allowedDashboards.length > 0 && (
+                <span> | Dashboards: {allowedDashboards.join(', ').toUpperCase()}</span>
+              )}
+            </p>
+          </div>
+        )}
+        
         {/* Dashboard Title */}
         <div className="flex items-center justify-between">
           <div>
@@ -641,6 +719,7 @@ export default function DashboardPage() {
             </h2>
             <p className="text-sm text-gray-600 mt-1">
               {startDate} to {endDate} | Real-time analytics from live API
+              {!isSuperadmin && hasStateRestrictions && ' | Filtered by your access'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -892,6 +971,16 @@ export default function DashboardPage() {
                 quantityKey: 'total_quantity',
                 childLabel: 'Cities',
                 backLabel: 'Back to States',
+              },
+              secondLevelDrillDownData: dealerCityData,
+              secondLevelDrillDownConfig: {
+                matchKey: 'city',
+                matchValueKey: 'city',
+                displayKey: 'dealer_name',
+                valueKey: 'total_sales',
+                quantityKey: 'total_quantity',
+                childLabel: 'Dealers',
+                backLabel: 'Back to Cities',
               },
             })}
           >

@@ -10,6 +10,7 @@ export interface AuthState {
   setCredentials: (username: string, password: string, role?: 'superadmin' | 'admin' | 'user', states?: string[], dashboards?: string[]) => void;
   logout: () => void;
   setAllowedStates: (states: string[]) => void;
+  loadFromStorage: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -19,10 +20,44 @@ export const useAuthStore = create<AuthState>((set) => ({
   userRole: 'user',
   allowedStates: [],
   allowedDashboards: [],
-  setCredentials: (username: string, password: string, role = 'user', states = [], dashboards = []) =>
-    set({ username, password, isAuthenticated: true, userRole: role, allowedStates: states, allowedDashboards: dashboards }),
-  logout: () => set({ username: '', password: '', isAuthenticated: false, userRole: 'user', allowedStates: [], allowedDashboards: [] }),
+  setCredentials: (username: string, password: string, role = 'user', states = [], dashboards = []) => {
+    const newState = { username, password, isAuthenticated: true, userRole: role as 'superadmin' | 'admin' | 'user', allowedStates: states, allowedDashboards: dashboards };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('auth_state', JSON.stringify({
+        username,
+        userRole: role,
+        allowedStates: states,
+        allowedDashboards: dashboards,
+      }));
+    }
+    set(newState);
+  },
+  logout: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_state');
+    }
+    set({ username: '', password: '', isAuthenticated: false, userRole: 'user', allowedStates: [], allowedDashboards: [] });
+  },
   setAllowedStates: (states: string[]) => set({ allowedStates: states }),
+  loadFromStorage: () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('auth_state');
+      if (stored) {
+        try {
+          const auth = JSON.parse(stored);
+          set({
+            username: auth.username || '',
+            isAuthenticated: !!auth.username,
+            userRole: auth.userRole || 'user',
+            allowedStates: auth.allowedStates || [],
+            allowedDashboards: auth.allowedDashboards || [],
+          });
+        } catch (e) {
+          console.error('Failed to load auth from storage:', e);
+        }
+      }
+    }
+  },
 }));
 
 export interface DashboardState {

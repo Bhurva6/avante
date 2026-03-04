@@ -46,6 +46,16 @@ export interface DrillDownConfig {
   backLabel?: string;    // text for the back button (e.g. 'Back to States', 'Back to Dealers')
 }
 
+export interface SecondLevelDrillDownConfig {
+  matchKey: string;      // key in secondLevelDrillDownData to filter by (e.g. 'city')
+  matchValueKey: string; // key in first level data items holding the match value (e.g. 'city')
+  displayKey: string;    // key in secondLevelDrillDownData for labels (e.g. 'dealer_name')
+  valueKey: string;      // key in secondLevelDrillDownData for value (e.g. 'total_sales')
+  quantityKey?: string;  // optional secondary value key (e.g. 'total_quantity')
+  childLabel?: string;   // label for second level items (e.g. 'Dealers')
+  backLabel?: string;    // text for the back button (e.g. 'Back to Cities')
+}
+
 export interface ChartConfig {
   type: ChartType;
   title: string;
@@ -61,6 +71,8 @@ export interface ChartConfig {
   legendBelow?: boolean; // Position legend below the chart instead of beside
   drillDownData?: any[];         // raw source data for drill-down (e.g. rawCategoryData)
   drillDownConfig?: DrillDownConfig;
+  secondLevelDrillDownData?: any[];         // raw source data for second-level drill-down
+  secondLevelDrillDownConfig?: SecondLevelDrillDownConfig;
 }
 
 interface ChartModalProps {
@@ -78,6 +90,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [drillDownItem, setDrillDownItem] = useState<{ name: string; matchValue: string } | null>(null);
+  const [secondLevelDrillDownItem, setSecondLevelDrillDownItem] = useState<{ name: string; matchValue: string } | null>(null);
   const [showTopN, setShowTopN] = useState(false);
   const [isHeaderFilterOpen, setIsHeaderFilterOpen] = useState(false);
   const [headerSearchQuery, setHeaderSearchQuery] = useState('');
@@ -93,6 +106,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
       setSearchQuery('');
       setHeaderSearchQuery('');
       setDrillDownItem(initialDrillDown ?? null);
+      setSecondLevelDrillDownItem(null);
       setShowTopN(config.type === 'horizontalBar' && config.data.length > 10);
       setIsHeaderFilterOpen(false);
       // Reset selected items when config changes - select all by default (only if filtering is enabled)
@@ -207,6 +221,31 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
         })()
       : null;
 
+  // Compute second-level drill-down data (e.g., dealers for a city)
+  const secondLevelDrillDownChartData: { name: string; revenue: number; quantity: number }[] | null =
+    secondLevelDrillDownItem && config.secondLevelDrillDownData && config.secondLevelDrillDownConfig
+      ? (() => {
+          const { matchKey, displayKey, valueKey, quantityKey } = config.secondLevelDrillDownConfig;
+          const rows = config.secondLevelDrillDownData.filter(
+            row =>
+              row[matchKey] === secondLevelDrillDownItem.matchValue ||
+              row[matchKey]?.toLowerCase() === secondLevelDrillDownItem.matchValue?.toLowerCase()
+          );
+          const agg = new Map<string, { revenue: number; quantity: number }>();
+          rows.forEach(row => {
+            const label = (row[displayKey] || 'Unknown') as string;
+            const existing = agg.get(label) || { revenue: 0, quantity: 0 };
+            agg.set(label, {
+              revenue: existing.revenue + (row[valueKey] || 0),
+              quantity: existing.quantity + (quantityKey ? row[quantityKey] || 0 : 0),
+            });
+          });
+          return Array.from(agg.entries())
+            .map(([name, { revenue, quantity }]) => ({ name, revenue, quantity }))
+            .sort((a, b) => b.revenue - a.revenue);
+        })()
+      : null;
+
   // Helper functions for item selection
   const toggleItem = (item: string) => {
     setSelectedItems(prev => 
@@ -254,11 +293,48 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
 
     switch (type) {
       case 'bar': {
-        // If drilled down, show breakdown as a horizontal bar chart
+        // If second level drill down is active, show dealers for the selected city
+        if (secondLevelDrillDownItem && secondLevelDrillDownChartData) {
+          const slData = secondLevelDrillDownChartData;
+          const slMaxLen = slData.reduce((acc, d) => Math.max(acc, String(d.name || '').length), 0);
+          const slYAxisWidth = Math.min(Math.max(slMaxLen * 7, 80), 280);
+          return (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={slData} layout="vertical" margin={{ top: 20, right: 60, left: 8, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis type="number" tickFormatter={formatIndianNumber} tick={{ fill: '#374151', fontSize: 12 }} />
+                <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 12 }} width={slYAxisWidth} />
+                <Tooltip
+                  formatter={(value: number, name: string) =>
+                    name === 'revenue'
+                      ? [formatTooltipValue(value), 'Revenue']
+                      : [value.toLocaleString('en-IN'), 'Quantity']
+                  }
+                />
+                <Legend />
+                <Bar dataKey="revenue" radius={[0, 4, 4, 0]} name="Revenue">
+                  {slData.map((_, index) => (
+                    <Cell key={`sl-cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          );
+        }
+
+        // If drilled down to cities, show breakdown as a horizontal bar chart with drill-down capability
         if (drillDownItem && drillDownChartData) {
           const ddData = drillDownChartData;
           const ddMaxLen = ddData.reduce((acc, d) => Math.max(acc, String(d.name || '').length), 0);
           const ddYAxisWidth = Math.min(Math.max(ddMaxLen * 7, 80), 280);
+          
+          const canSecondLevelDrillDown = !!(config.secondLevelDrillDownData && config.secondLevelDrillDownConfig);
+          const handleCityBarClick = (barData: any) => {
+            if (!canSecondLevelDrillDown || !config.secondLevelDrillDownConfig) return;
+            const matchValue = barData[config.secondLevelDrillDownConfig.matchValueKey];
+            if (matchValue) setSecondLevelDrillDownItem({ name: barData.name, matchValue });
+          };
+
           return (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ddData} layout="vertical" margin={{ top: 20, right: 60, left: 8, bottom: 20 }}>
@@ -273,7 +349,13 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
                   }
                 />
                 <Legend />
-                <Bar dataKey="revenue" radius={[0, 4, 4, 0]} name="Revenue">
+                <Bar 
+                  dataKey="revenue" 
+                  radius={[0, 4, 4, 0]} 
+                  name="Revenue"
+                  onClick={canSecondLevelDrillDown ? handleCityBarClick : undefined}
+                  style={{ cursor: canSecondLevelDrillDown ? 'pointer' : 'default' }}
+                >
                   {ddData.map((_, index) => (
                     <Cell key={`dd-cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -566,7 +648,15 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Maximize2 className="w-5 h-5 text-indigo-600" />
-            {drillDownItem ? (
+            {secondLevelDrillDownItem ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">{config.title}</span>
+                <span className="text-sm text-gray-400">/</span>
+                <span className="text-sm text-gray-600">{drillDownItem?.name}</span>
+                <span className="text-sm text-gray-400">/</span>
+                <h2 className="text-xl font-bold text-gray-900">{secondLevelDrillDownItem.name} — {config.secondLevelDrillDownConfig?.childLabel || 'Details'}</h2>
+              </div>
+            ) : drillDownItem ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500">{config.title}</span>
                 <span className="text-sm text-gray-400">/</span>
@@ -577,8 +667,18 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Back button when drilled down */}
-            {drillDownItem && (
+            {/* Back button for second level drill-down */}
+            {secondLevelDrillDownItem && (
+              <button
+                onClick={() => setSecondLevelDrillDownItem(null)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                {config.secondLevelDrillDownConfig?.backLabel || 'Back'}
+              </button>
+            )}
+            {/* Back button for first level drill-down */}
+            {drillDownItem && !secondLevelDrillDownItem && (
               <button
                 onClick={() => setDrillDownItem(null)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
@@ -602,7 +702,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
               </button>
             )}
             {/* Inline filter — bar, horizontalBar, and composed charts */}
-            {!drillDownItem && (config.type === 'composed' || config.type === 'bar' || config.type === 'horizontalBar') && !config.disableFiltering && (
+            {!drillDownItem && !secondLevelDrillDownItem && (config.type === 'composed' || config.type === 'bar' || config.type === 'horizontalBar') && !config.disableFiltering && (
               <div className="relative" ref={headerFilterRef}>
                 <button
                   onClick={() => setIsHeaderFilterOpen(prev => !prev)}
@@ -624,18 +724,6 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
 
                 {isHeaderFilterOpen && (
                   <div className="absolute right-0 top-full mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                    {/* Search */}
-                    <div className="p-2 border-b border-gray-100">
-                      <input
-                        ref={headerSearchRef}
-                        type="text"
-                        value={headerSearchQuery}
-                        onChange={(e) => setHeaderSearchQuery(e.target.value)}
-                        placeholder={`Search ${getItemTypeLabel().toLowerCase()}...`}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
                     {/* Select All / Deselect All */}
                     <div className="px-2 py-1.5 border-b border-gray-100 flex gap-2">
                       <button
@@ -706,7 +794,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
         </div>
 
         {/* Settings Panel — hidden in drill-down mode */}
-        {showSettings && !config.disableFiltering && !drillDownItem && (
+        {showSettings && !config.disableFiltering && !drillDownItem && !secondLevelDrillDownItem && (
           <div className="p-4 bg-gray-50 border-b border-gray-200">
             <div className="flex flex-wrap gap-4 items-start">
               {/* Item Selection Dropdown */}

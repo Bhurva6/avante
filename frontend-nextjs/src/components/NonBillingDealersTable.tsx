@@ -26,6 +26,20 @@ interface NonBillingDealersTableProps {
 
 type TimeFilter = 'week' | 'month' | 'quarter' | 'year';
 
+// Format date from YYYY-MM-DD to DD-MM-YYYY for API
+const formatDateForAPI = (dateStr: string): string => {
+  if (!dateStr) return '';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}-${month}-${date.getFullYear()}`;
+  } catch {
+    return '';
+  }
+};
+
 // Helper functions for dealer filtering
 const isInnovativeDealer = (dealerName: string): boolean => {
   return dealerName?.toLowerCase().includes('innovative');
@@ -70,9 +84,9 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
     // For now, fetch from API or display empty state
     const loadData = async () => {
       try {
-        // Format dates for API call if available
-        const formattedStartDate = startDate || '';
-        const formattedEndDate = endDate || '';
+        // Format dates to DD-MM-YYYY for API
+        const formattedStartDate = formatDateForAPI(startDate);
+        const formattedEndDate = formatDateForAPI(endDate);
         
         // This would be the API call when available
         const API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
@@ -81,11 +95,18 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
         
         const apiEndpoint = dashboardMode === 'avante' ? 'avante' : 'iospl';
         
-        if (formattedStartDate && formattedEndDate && API_BASE) {
+        if (formattedStartDate && formattedEndDate) {
           const response = await fetch(`${API_BASE}/api/${apiEndpoint}/non-billing-dealers?start_date=${formattedStartDate}&end_date=${formattedEndDate}&period=${timeFilter}`);
           if (response.ok) {
             const data = await response.json();
-            setDealers(data || []);
+            let filteredData: NonBillingDealer[] = data || [];
+            // Apply hideInnovative/hideAvante filtering
+            if (dashboardMode === 'avante' && hideInnovative) {
+              filteredData = filteredData.filter(d => !isInnovativeDealer(d.dealer_name || ''));
+            } else if (dashboardMode === 'iospl' && hideAvante) {
+              filteredData = filteredData.filter(d => !isAvanteDealer(d.dealer_name || ''));
+            }
+            setDealers(filteredData);
           }
         } else {
           setDealers([]);
