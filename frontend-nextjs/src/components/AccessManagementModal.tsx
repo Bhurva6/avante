@@ -46,6 +46,8 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingUserStates, setEditingUserStates] = useState<string[]>([]);
   const [editingUserDashboards, setEditingUserDashboards] = useState<string[]>([]);
+  const [editStateSearch, setEditStateSearch] = useState('');
+  const [editShowStateDropdown, setEditShowStateDropdown] = useState(false);
 
   const isAuthorized = userRole === 'superadmin';
 
@@ -249,18 +251,19 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Search states..."
+                      placeholder="Search and select states..."
                       value={stateSearch}
                       onChange={(e) => setStateSearch(e.target.value)}
-                      onClick={() => setShowStateDropdown(true)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      onClick={() => setShowStateDropdown(!showStateDropdown)}
+                      onBlur={() => setTimeout(() => setShowStateDropdown(false), 200)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     {showStateDropdown && (
-                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto z-10">
+                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto z-10 shadow-lg">
                         {INDIAN_STATES.filter(s => 
                           s.toLowerCase().includes(stateSearch.toLowerCase())
                         ).map(state => (
-                          <label key={state} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                          <label key={state} className="flex items-center gap-2 px-3 py-2 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0">
                             <input
                               type="checkbox"
                               checked={newUserStates.includes(state)}
@@ -271,7 +274,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                                   setNewUserStates(newUserStates.filter(s => s !== state));
                                 }
                               }}
-                              className="w-4 h-4"
+                              className="w-4 h-4 rounded"
                             />
                             <span className="text-sm">{state}</span>
                           </label>
@@ -279,6 +282,22 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                       </div>
                     )}
                   </div>
+                  {newUserStates.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {newUserStates.map(state => (
+                        <span key={state} className="bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2">
+                          {state}
+                          <button
+                            type="button"
+                            onClick={() => setNewUserStates(newUserStates.filter(s => s !== state))}
+                            className="hover:text-indigo-900 font-bold"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -342,9 +361,62 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                     <tr key={user.email} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3">{user.email}</td>
                       <td className="px-4 py-3">
-                        <span className="text-sm">
-                          {Array.isArray(user.state_access) ? user.state_access.join(', ') : 'All'}
-                        </span>
+                        {editingUserId === user.email ? (
+                          <div className="relative min-w-max">
+                            <input
+                              type="text"
+                              placeholder="Search states..."
+                              value={editStateSearch}
+                              onChange={(e) => setEditStateSearch(e.target.value)}
+                              onClick={() => setEditShowStateDropdown(!editShowStateDropdown)}
+                              onBlur={() => setTimeout(() => setEditShowStateDropdown(false), 200)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            {editShowStateDropdown && (
+                              <div className="absolute top-full left-0 right-full bg-white border border-gray-300 rounded-lg mt-1 max-h-40 overflow-y-auto z-20 shadow-lg min-w-max">
+                                {INDIAN_STATES.filter(s => 
+                                  s.toLowerCase().includes(editStateSearch.toLowerCase())
+                                ).map(state => (
+                                  <label key={state} className="flex items-center gap-2 px-3 py-2 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0 whitespace-nowrap">
+                                    <input
+                                      type="checkbox"
+                                      checked={editingUserStates.includes(state)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setEditingUserStates([...editingUserStates, state]);
+                                        } else {
+                                          setEditingUserStates(editingUserStates.filter(s => s !== state));
+                                        }
+                                      }}
+                                      className="w-4 h-4 rounded"
+                                    />
+                                    <span className="text-sm">{state}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                            {editingUserStates.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {editingUserStates.map(state => (
+                                  <span key={state} className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1">
+                                    {state}
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingUserStates(editingUserStates.filter(s => s !== state))}
+                                      className="hover:text-indigo-900 font-bold"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm">
+                            {Array.isArray(user.state_access) ? user.state_access.join(', ') : 'All'}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {editingUserId === user.email ? (
