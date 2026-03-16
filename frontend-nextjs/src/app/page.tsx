@@ -285,13 +285,11 @@ export default function DashboardPage() {
     }
   };
 
-  // Apply filtering based on hideInnovative (Avante) or hideAvante (IOSPL) AND user access restrictions
+  // Apply filtering based on hideInnovative (Avante) or hideAvante (IOSPL)
+  // Note: state-based access filtering is handled at the API level via the &states= parameter.
   useEffect(() => {
-    console.log('🔄 Filter effect triggered - hideInnovative:', hideInnovative, 'hideAvante:', hideAvante, 'dashboardMode:', dashboardMode, 'allowedStates:', allowedStates, 'isSuperadmin:', isSuperadmin);
-    
     // If no original data yet, skip
     if (originalRawDealerData.length === 0) {
-      console.log('⏭️ Skipping filter - no original data yet');
       return;
     }
 
@@ -301,138 +299,36 @@ export default function DashboardPage() {
     let filteredCities = [...originalRawCityData];
     let filteredStats = { ...originalRawStats };
 
-    // Check if we need to apply filters
     const shouldFilterInnovative = dashboardMode === 'avante' && hideInnovative;
     const shouldFilterAvante = dashboardMode === 'iospl' && hideAvante;
 
     if (shouldFilterInnovative) {
-      console.log('🔍 Applying Innovative filter to Avante dashboard');
-      
-      // Filter dealer data directly
-      filteredDealers = originalRawDealerData.filter(dealer => 
+      filteredDealers = originalRawDealerData.filter(dealer =>
         !isInnovativeDealer(dealer.dealer_name || '')
       );
-
-      // Filter state data
-      filteredStates = originalRawStateData.filter(state => {
-        // Keep state only if it has remaining dealers
-        return true; // Keep all states (they may have other dealers)
-      });
-
-      // Filter category data - keep all categories
-      filteredCategories = originalRawCategoryData.filter(cat => {
-        // Keep category if it's not exclusively from Innovative dealers
-        return true; // Keep all categories
-      });
-
-      // Filter city data
-      filteredCities = originalRawCityData.filter(city => {
-        // Keep city only if it has remaining dealers
-        return true; // Keep all cities
-      });
-
-      // Recalculate stats from filtered dealers
       const totalRevenue = filteredDealers.reduce((sum, d) => sum + (d.total_sales || 0), 0);
       const totalQuantity = filteredDealers.reduce((sum, d) => sum + (d.total_quantity || 0), 0);
-      const totalDealerCount = filteredDealers.length;
-      const totalProductCount = new Set(filteredCategories.map(c => c.product_name)).size;
-      
       filteredStats = {
         total_revenue: totalRevenue,
         total_quantity: totalQuantity,
-        total_dealers: totalDealerCount,
-        total_products: totalProductCount
+        total_dealers: filteredDealers.length,
+        total_products: new Set(filteredCategories.map(c => c.product_name)).size,
       };
-      
-      console.log('✅ Filtered Avante (Innovative removed) - dealers:', filteredDealers.length, 'stats:', filteredStats);
     } else if (shouldFilterAvante) {
-      console.log('🔍 Applying Avante filter to IOSPL dashboard');
-      
-      // Filter dealer data directly
-      filteredDealers = originalRawDealerData.filter(dealer => 
+      filteredDealers = originalRawDealerData.filter(dealer =>
         !isAvanteDealer(dealer.dealer_name || '')
       );
-
-      // Filter state data
-      filteredStates = originalRawStateData.filter(state => {
-        // Keep state only if it has remaining dealers
-        return true; // Keep all states (they may have other dealers)
-      });
-
-      // Filter category data
-      filteredCategories = originalRawCategoryData.filter(cat => {
-        // Keep category if it's not exclusively from Avante dealers
-        return true; // Keep all categories
-      });
-
-      // Filter city data
-      filteredCities = originalRawCityData.filter(city => {
-        // Keep city only if it has remaining dealers
-        return true; // Keep all cities
-      });
-
-      // Recalculate stats from filtered dealers
       const totalRevenue = filteredDealers.reduce((sum, d) => sum + (d.total_sales || 0), 0);
       const totalQuantity = filteredDealers.reduce((sum, d) => sum + (d.total_quantity || 0), 0);
-      const totalDealerCount = filteredDealers.length;
-      const totalProductCount = new Set(filteredCategories.map(c => c.product_name)).size;
-      
       filteredStats = {
         total_revenue: totalRevenue,
         total_quantity: totalQuantity,
-        total_dealers: totalDealerCount,
-        total_products: totalProductCount
+        total_dealers: filteredDealers.length,
+        total_products: new Set(filteredCategories.map(c => c.product_name)).size,
       };
-      
-      console.log('✅ Filtered IOSPL (Avante removed) - dealers:', filteredDealers.length, 'stats:', filteredStats);
-    } else {
-      console.log('✅ No filter - using original data');
-      filteredDealers = [...originalRawDealerData];
-      filteredStates = [...originalRawStateData];
-      filteredCategories = [...originalRawCategoryData];
-      filteredCities = [...originalRawCityData];
-      filteredStats = { ...originalRawStats };
     }
 
-    // ✅ NEW: Apply user access restrictions (state-based filtering) - unless user is superadmin
-    if (hasStateRestrictions) {
-      console.log('� Applying user access restrictions - allowedStates:', allowedStates);
-      
-      // Filter states to only allowed ones
-      filteredStates = filteredStates.filter(state => 
-        allowedStates.includes(state.state || '')
-      );
-
-      // Filter cities to only those in allowed states
-      filteredCities = filteredCities.filter(city => 
-        allowedStates.includes(city.state || '')
-      );
-
-      // Filter dealers to only those in allowed states
-      // Note: We need to infer dealer states from city data
-      const allowedCities = new Set(filteredCities.map(c => c.city || ''));
-      filteredDealers = filteredDealers.filter(dealer => {
-        // For dealers, we'll assume they're associated with cities in allowed states
-        // If dealer has state info directly, use it; otherwise keep if any city exists in allowed states
-        return true; // We'll rely on state filtering below
-      });
-
-      // Recalculate stats from filtered states/cities
-      const totalRevenue = filteredStates.reduce((sum, s) => sum + (s.total_sales || 0), 0);
-      const totalQuantity = filteredStates.reduce((sum, s) => sum + (s.total_quantity || 0), 0);
-      const totalDealerCount = filteredCities.length; // Approximate dealer count from unique cities
-      
-      filteredStats = {
-        total_revenue: totalRevenue,
-        total_quantity: totalQuantity,
-        total_dealers: totalDealerCount,
-        total_products: filteredCategories.length
-      };
-      
-      console.log('✅ Applied user access restrictions - states:', filteredStates.length, 'cities:', filteredCities.length);
-    }
-
-    // Set all filtered data at once
+    // Set all filtered data
     setRawDealerData(filteredDealers);
     setRawStateData(filteredStates);
     setRawCategoryData(filteredCategories);
@@ -496,7 +392,7 @@ export default function DashboardPage() {
       .slice(0, 8);
     setParentCategoryQuantityData(parentQuantityCategories);
 
-  }, [hideInnovative, hideAvante, dashboardMode, allowedStates, originalRawDealerData, originalRawStateData, originalRawCategoryData, originalRawCityData, originalRawStats, hasStateRestrictions, isSuperadmin]);
+  }, [hideInnovative, hideAvante, dashboardMode, originalRawDealerData, originalRawStateData, originalRawCategoryData, originalRawCityData, originalRawStats]);
 
   // Create dealer-city mapping for second-level drill-down
   useEffect(() => {
@@ -555,12 +451,17 @@ export default function DashboardPage() {
         }
         
         console.log(`📡 API Endpoint: ${apiEndpoint}, Dates: ${formattedStartDate} to ${formattedEndDate}`);
+
+        // Build the optional states filter for restricted users
+        const statesParam = hasStateRestrictions && allowedStates.length > 0
+          ? `&states=${encodeURIComponent(allowedStates.join(','))}`
+          : '';
         
         // Fetch stats
         let statsData = { total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 };
         try {
           const statsResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/stats?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+            `${API_BASE}/api/${apiEndpoint}/stats?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
           );
           if (!statsResponse.ok) {
             throw new Error(`HTTP error! status: ${statsResponse.status}`);
@@ -577,7 +478,7 @@ export default function DashboardPage() {
         let dealerPerf = [];
         try {
           const dealerResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/dealer-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+            `${API_BASE}/api/${apiEndpoint}/dealer-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
           );
           dealerPerf = await dealerResponse.json();
           console.log('✅ Dealer data loaded:', dealerPerf.length, 'items');
@@ -599,7 +500,7 @@ export default function DashboardPage() {
         let statePerf = [];
         try {
           const stateResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/state-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+            `${API_BASE}/api/${apiEndpoint}/state-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
           );
           if (!stateResponse.ok) {
             throw new Error(`HTTP error! status: ${stateResponse.status}`);
@@ -617,7 +518,7 @@ export default function DashboardPage() {
         let categoryPerf = [];
         try {
           const categoryResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/category-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+            `${API_BASE}/api/${apiEndpoint}/category-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
           );
           categoryPerf = await categoryResponse.json();
           console.log('✅ Category data loaded:', categoryPerf.length, 'items');
@@ -641,7 +542,7 @@ export default function DashboardPage() {
         let cityPerf = [];
         try {
           const cityResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/city-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+            `${API_BASE}/api/${apiEndpoint}/city-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
           );
           if (!cityResponse.ok) {
             throw new Error(`HTTP error! status: ${cityResponse.status}`);
@@ -659,7 +560,7 @@ export default function DashboardPage() {
         let salesData = [];
         try {
           const salesResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/sales?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+            `${API_BASE}/api/${apiEndpoint}/sales?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
           );
           if (!salesResponse.ok) {
             throw new Error(`HTTP error! status: ${salesResponse.status}`);
@@ -681,7 +582,7 @@ export default function DashboardPage() {
     };
 
     loadData();
-  }, [startDate, endDate, dashboardMode]);
+  }, [startDate, endDate, dashboardMode, allowedStates, hasStateRestrictions]);
 
   // Calculate additional metrics
   const avgOrderValue = stats.total_quantity > 0 ? stats.total_revenue / stats.total_quantity : 0;
@@ -1099,6 +1000,7 @@ export default function DashboardPage() {
             endDate={endDate}
             hideInnovative={hideInnovative}
             hideAvante={hideAvante}
+            allowedStates={isSuperadmin ? [] : allowedStates}
           />
 
           {/* Non-Billing Dealers Table */}
@@ -1109,6 +1011,7 @@ export default function DashboardPage() {
             hideAvante={hideAvante}
             startDate={startDate}
             endDate={endDate}
+            allowedStates={isSuperadmin ? [] : allowedStates}
           />
 
           {/* Top Dealers Table */}

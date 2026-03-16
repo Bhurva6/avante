@@ -146,6 +146,20 @@ def _parse_api_date(date_str):
         return None
 
 
+def _filter_by_states(sales_data, states_param):
+    """Filter raw sales records to only those whose state is in states_param.
+
+    states_param is a comma-separated string (e.g. 'Maharashtra,Gujarat').
+    Returns the original list unchanged when states_param is empty / not supplied.
+    """
+    if not states_param:
+        return sales_data
+    allowed = {s.strip() for s in states_param.split(',') if s.strip()}
+    if not allowed:
+        return sales_data
+    return [r for r in sales_data if (r.get('state') or '').strip() in allowed]
+
+
 def _compute_previous_period(start_str, end_str):
     """Return the same-length period immediately before (start_str, end_str)."""
     start = _parse_api_date(start_str)
@@ -247,9 +261,10 @@ def setup_api_endpoints(app):
     def get_avante_sales():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify({'status': 'success', 'data': sales_data, 'count': len(sales_data)})
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e), 'data': []}), 500
@@ -258,9 +273,10 @@ def setup_api_endpoints(app):
     def get_avante_stats():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_stats(sales_data))
         except Exception as e:
             return jsonify({'total_revenue': 0, 'total_quantity': 0, 'total_dealers': 0, 'total_products': 0, 'error': str(e)}), 500
@@ -269,9 +285,10 @@ def setup_api_endpoints(app):
     def get_avante_dealer_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_dealer_performance(sales_data))
         except Exception as e:
             return jsonify([]), 500
@@ -280,9 +297,10 @@ def setup_api_endpoints(app):
     def get_avante_state_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_state_performance(sales_data))
         except Exception as e:
             return jsonify([]), 500
@@ -291,9 +309,10 @@ def setup_api_endpoints(app):
     def get_avante_category_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_category_performance(sales_data))
         except Exception as e:
             return jsonify([]), 500
@@ -302,9 +321,10 @@ def setup_api_endpoints(app):
     def get_avante_city_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_city_performance(sales_data))
         except Exception as e:
             return jsonify([]), 500
@@ -315,9 +335,10 @@ def setup_api_endpoints(app):
     def get_iospl_sales():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify({'status': 'success', 'data': sales_data, 'count': len(sales_data)})
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e), 'data': []}), 500
@@ -326,9 +347,10 @@ def setup_api_endpoints(app):
     def get_iospl_stats():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_stats(sales_data))
         except Exception as e:
             return jsonify({'total_revenue': 0, 'total_quantity': 0, 'total_dealers': 0, 'total_products': 0, 'error': str(e)}), 500
@@ -337,9 +359,10 @@ def setup_api_endpoints(app):
     def get_iospl_dealer_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_dealer_performance(sales_data))
         except Exception as e:
             return jsonify([]), 500
@@ -348,9 +371,10 @@ def setup_api_endpoints(app):
     def get_iospl_state_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_state_performance(sales_data))
         except Exception as e:
             return jsonify([]), 500
@@ -359,9 +383,10 @@ def setup_api_endpoints(app):
     def get_iospl_category_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_category_performance(sales_data))
         except Exception as e:
             return jsonify([]), 500
@@ -370,9 +395,10 @@ def setup_api_endpoints(app):
     def get_iospl_city_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify(process_city_performance(sales_data))
         except Exception as e:
             return jsonify([]), 500
@@ -381,9 +407,10 @@ def setup_api_endpoints(app):
     def get_avante_comparative_analysis():
         start_date = request.args.get('start_date', '01-01-2024')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify({'status': 'success', 'report_data': sales_data})
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e), 'report_data': []}), 500
@@ -392,9 +419,10 @@ def setup_api_endpoints(app):
     def get_iospl_comparative_analysis():
         start_date = request.args.get('start_date', '01-01-2024')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
-            sales_data = api_response.get('report_data') or []
+            sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
             return jsonify({'status': 'success', 'report_data': sales_data})
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e), 'report_data': []}), 500
@@ -403,14 +431,15 @@ def setup_api_endpoints(app):
     def get_avante_non_billing_dealers():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             current_resp = APIClient().get_sales_report(start_date, end_date)
-            current_data = current_resp.get('report_data') or []
+            current_data = _filter_by_states(current_resp.get('report_data') or [], states_param)
             prev_start, prev_end = _compute_previous_period(start_date, end_date)
             prev_data = []
             if prev_start and prev_end:
                 prev_resp = APIClient().get_sales_report(prev_start, prev_end)
-                prev_data = prev_resp.get('report_data') or []
+                prev_data = _filter_by_states(prev_resp.get('report_data') or [], states_param)
             return jsonify(_build_non_billing_dealers(current_data, prev_data))
         except Exception as e:
             return jsonify([]), 500
@@ -419,14 +448,15 @@ def setup_api_endpoints(app):
     def get_iospl_non_billing_dealers():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
+        states_param = request.args.get('states', '').strip()
         try:
             current_resp = APIClientIOSPL().get_sales_report(start_date, end_date)
-            current_data = current_resp.get('report_data') or []
+            current_data = _filter_by_states(current_resp.get('report_data') or [], states_param)
             prev_start, prev_end = _compute_previous_period(start_date, end_date)
             prev_data = []
             if prev_start and prev_end:
                 prev_resp = APIClientIOSPL().get_sales_report(prev_start, prev_end)
-                prev_data = prev_resp.get('report_data') or []
+                prev_data = _filter_by_states(prev_resp.get('report_data') or [], states_param)
             return jsonify(_build_non_billing_dealers(current_data, prev_data))
         except Exception as e:
             return jsonify([]), 500

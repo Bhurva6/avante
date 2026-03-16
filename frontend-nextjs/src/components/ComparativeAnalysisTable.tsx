@@ -37,6 +37,7 @@ interface ComparativeAnalysisTableProps {
   endDate?: string;
   hideInnovative?: boolean;
   hideAvante?: boolean;
+  allowedStates?: string[];
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -62,7 +63,8 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
   startDate = '',
   endDate = '',
   hideInnovative = false,
-  hideAvante = false
+  hideAvante = false,
+  allowedStates = [],
 }) => {
   const [data, setData] = useState<ComparativeDataRow[]>([]);
   const [filteredData, setFilteredData] = useState<ComparativeDataRow[]>([]);
@@ -178,8 +180,11 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
         console.log(`📊 Fetching comparative analysis data for ${apiEndpoint}...`);
 
         // Fetch comparative analysis data from API
+        const statesParam = allowedStates.length > 0
+          ? `&states=${encodeURIComponent(allowedStates.join(','))}`
+          : '';
         const response = await fetch(
-          `${API_BASE}/api/${apiEndpoint}/comparative-analysis?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+          `${API_BASE}/api/${apiEndpoint}/comparative-analysis?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
         );
 
         if (!response.ok) {
@@ -280,7 +285,7 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
     if (localStartDate && localEndDate) {
       loadData();
     }
-  }, [dashboardMode, localStartDate, localEndDate, hideInnovative, hideAvante]);
+  }, [dashboardMode, localStartDate, localEndDate, hideInnovative, hideAvante, allowedStates]);
 
   // Apply filters and search
   useEffect(() => {

@@ -22,6 +22,7 @@ interface NonBillingDealersTableProps {
   hideAvante?: boolean;
   startDate?: string;
   endDate?: string;
+  allowedStates?: string[];
 }
 
 type TimeFilter = 'week' | 'month' | 'quarter' | 'year';
@@ -57,6 +58,7 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
   hideAvante = false,
   startDate: propStartDate = '',
   endDate: propEndDate = '',
+  allowedStates = [],
 }) => {
   const [dealers, setDealers] = useState<NonBillingDealer[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('month');
@@ -96,7 +98,10 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
         const apiEndpoint = dashboardMode === 'avante' ? 'avante' : 'iospl';
         
         if (formattedStartDate && formattedEndDate) {
-          const response = await fetch(`${API_BASE}/api/${apiEndpoint}/non-billing-dealers?start_date=${formattedStartDate}&end_date=${formattedEndDate}&period=${timeFilter}`);
+          const statesParam = allowedStates.length > 0
+            ? `&states=${encodeURIComponent(allowedStates.join(','))}`
+            : '';
+          const response = await fetch(`${API_BASE}/api/${apiEndpoint}/non-billing-dealers?start_date=${formattedStartDate}&end_date=${formattedEndDate}&period=${timeFilter}${statesParam}`);
           if (response.ok) {
             const data = await response.json();
             let filteredData: NonBillingDealer[] = data || [];
@@ -118,7 +123,7 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
     };
 
     loadData();
-  }, [loading, timeFilter, dashboardMode, hideInnovative, hideAvante, startDate, endDate]);
+  }, [loading, timeFilter, dashboardMode, hideInnovative, hideAvante, startDate, endDate, allowedStates]);
 
   // Get unique cities and states for filter dropdowns
   const uniqueCities = useMemo(() => {
