@@ -165,7 +165,7 @@ const MiniMetricCard: React.FC<{
 );
 
 export default function DashboardPage() {
-  const { dashboardMode, startDate, endDate, hideInnovative, hideAvante } = useDashboardStore();
+  const { dashboardMode, startDate, endDate, hideIospl, hideAvante } = useDashboardStore();
   const { allowedStates, allowedDashboards, isAuthenticated, userRole } = useAuthStore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -204,18 +204,12 @@ export default function DashboardPage() {
   const [rawStateData, setRawStateData] = useState<any[]>([]);
   const [rawCategoryData, setRawCategoryData] = useState<any[]>([]);
   const [rawCityData, setRawCityData] = useState<any[]>([]);
-  const [rawStats, setRawStats] = useState<Stats>({ total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 });
-  const [rawSalesData, setRawSalesData] = useState<any[]>([]);
   
   // Dealer data enriched with city information for drill-down
   const [dealerCityData, setDealerCityData] = useState<any[]>([]);
   
   // Original raw data (unfiltered)
-  const [originalRawDealerData, setOriginalRawDealerData] = useState<any[]>([]);
-  const [originalRawStateData, setOriginalRawStateData] = useState<any[]>([]);
-  const [originalRawCategoryData, setOriginalRawCategoryData] = useState<any[]>([]);
-  const [originalRawCityData, setOriginalRawCityData] = useState<any[]>([]);
-  const [originalRawStats, setOriginalRawStats] = useState<Stats>({ total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 });
+  const [originalRawSalesData, setOriginalRawSalesData] = useState<any[]>([]);
   
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -229,9 +223,10 @@ export default function DashboardPage() {
     setModalOpen(true);
   };
 
-  // Helper function to check if a dealer name contains "Innovative"
-  const isInnovativeDealer = (dealerName: string): boolean => {
-    return dealerName?.toLowerCase().includes('innovative');
+  // Helper function to check if a dealer belongs to IOSPL side
+  const isIosplDealer = (dealerName: string): boolean => {
+    const normalizedName = dealerName?.toLowerCase() || '';
+    return normalizedName.includes('innovative') || normalizedName.includes('iospl');
   };
 
   // Helper function to check if a dealer name contains "Avante"
@@ -239,100 +234,114 @@ export default function DashboardPage() {
     return dealerName?.toLowerCase().includes('avante');
   };
 
-  // Helper function to get filtered raw data based on current filters
-  const getFilteredRawData = (
-    rawData: any[],
-    filterFunction: (item: any) => boolean
-  ): any[] => {
-    return rawData.filter(filterFunction);
+  const buildAggregatesFromSales = (salesRows: any[]) => {
+    const dealerMap = new Map<string, { dealer_name: string; total_sales: number; total_quantity: number }>();
+    const stateMap = new Map<string, { state: string; total_sales: number; total_quantity: number }>();
+    const categoryMap = new Map<string, { product_name: string; parent_category: string; dealer_name: string; total_sales: number; total_quantity: number }>();
+    const cityMap = new Map<string, { city: string; state: string; city_state_key: string; total_sales: number; total_quantity: number }>();
+    const dealerCityMap = new Map<string, { city: string; state: string; city_state_key: string; dealer_name: string; total_sales: number; total_quantity: number }>();
+    const productSet = new Set<string>();
+
+    salesRows.forEach((row: any) => {
+      const dealerName = (row.comp_nm || row.dealer_name || 'Unknown').toString().trim() || 'Unknown';
+      const stateName = (row.state || 'Unknown').toString().trim() || 'Unknown';
+      const cityName = (row.city || 'Unknown').toString().trim() || 'Unknown';
+      const productName = (row.category_name || row.product_name || 'Unknown').toString().trim() || 'Unknown';
+      const parentCategory = (row.parent_category || 'Other').toString().trim() || 'Other';
+      const salesValue = Number(row.SV ?? row.total_sales ?? 0) || 0;
+      const quantityValue = Number(row.SQ ?? row.total_quantity ?? 0) || 0;
+
+      const dealerEntry = dealerMap.get(dealerName) || { dealer_name: dealerName, total_sales: 0, total_quantity: 0 };
+      dealerEntry.total_sales += salesValue;
+      dealerEntry.total_quantity += quantityValue;
+      dealerMap.set(dealerName, dealerEntry);
+
+      const stateEntry = stateMap.get(stateName) || { state: stateName, total_sales: 0, total_quantity: 0 };
+      stateEntry.total_sales += salesValue;
+      stateEntry.total_quantity += quantityValue;
+      stateMap.set(stateName, stateEntry);
+
+      const cityKey = `${stateName}|||${cityName}`;
+      const cityEntry = cityMap.get(cityKey) || { city: cityName, state: stateName, city_state_key: cityKey, total_sales: 0, total_quantity: 0 };
+      cityEntry.total_sales += salesValue;
+      cityEntry.total_quantity += quantityValue;
+      cityMap.set(cityKey, cityEntry);
+
+      const dealerCityKey = `${cityKey}|||${dealerName}`;
+      const dealerCityEntry = dealerCityMap.get(dealerCityKey) || {
+        city: cityName,
+        state: stateName,
+        city_state_key: cityKey,
+        dealer_name: dealerName,
+        total_sales: 0,
+        total_quantity: 0,
+      };
+      dealerCityEntry.total_sales += salesValue;
+      dealerCityEntry.total_quantity += quantityValue;
+      dealerCityMap.set(dealerCityKey, dealerCityEntry);
+
+      const categoryKey = `${dealerName}|||${parentCategory}|||${productName}`;
+      const categoryEntry = categoryMap.get(categoryKey) || {
+        product_name: productName,
+        parent_category: parentCategory,
+        dealer_name: dealerName,
+        total_sales: 0,
+        total_quantity: 0,
+      };
+      categoryEntry.total_sales += salesValue;
+      categoryEntry.total_quantity += quantityValue;
+      categoryMap.set(categoryKey, categoryEntry);
+
+      productSet.add(productName);
+    });
+
+    const dealerRows = Array.from(dealerMap.values()).sort((a, b) => b.total_sales - a.total_sales);
+    const stateRows = Array.from(stateMap.values()).sort((a, b) => b.total_sales - a.total_sales);
+    const categoryRows = Array.from(categoryMap.values()).sort((a, b) => b.total_sales - a.total_sales);
+    const cityRows = Array.from(cityMap.values()).sort((a, b) => b.total_sales - a.total_sales);
+    const dealerCityRows = Array.from(dealerCityMap.values()).sort((a, b) => b.total_sales - a.total_sales);
+
+    const statsRows: Stats = {
+      total_revenue: salesRows.reduce((sum: number, row: any) => sum + (Number(row.SV ?? row.total_sales ?? 0) || 0), 0),
+      total_quantity: salesRows.reduce((sum: number, row: any) => sum + (Number(row.SQ ?? row.total_quantity ?? 0) || 0), 0),
+      total_dealers: dealerRows.length,
+      total_products: productSet.size,
+    };
+
+    return { dealerRows, stateRows, categoryRows, cityRows, dealerCityRows, statsRows };
   };
 
-  // Helper function to process filtered data
-  const processFilteredData = (
-    dataToProcess: any[],
-    statsToProcess: Stats,
-    dataType: 'dealers' | 'states' | 'categories' | 'cities'
-  ) => {
-    // Update displayed data based on filtered raw data
-    if (dataType === 'dealers') {
-      const processed = dataToProcess.slice(0, 10).map((d: any) => ({
-        name: d.dealer_name?.substring(0, 20) || 'Unknown',
-        revenue: d.total_sales || 0,
-        quantity: d.total_quantity || 0
-      }));
-      setDealerData(processed);
-      setCombinedDealerData(processed);
-    } else if (dataType === 'states') {
-      const processed = dataToProcess.map((s: any) => ({
-        name: s.state || 'Unknown',
-        value: s.total_sales || 0,
-        quantity: s.total_quantity || 0
-      }));
-      setStateData(processed);
-    } else if (dataType === 'categories') {
-      const processed = dataToProcess.slice(0, 10).map((c: any) => ({
-        name: c.product_name || 'Unknown',
-        value: c.total_sales || 0
-      }));
-      setCategoryData(processed);
-    } else if (dataType === 'cities') {
-      const processed = dataToProcess.map((c: any) => ({
-        name: c.city || 'Unknown',
-        value: c.total_sales || 0,
-        state: c.state || ''
-      }));
-      setCityData(processed);
-    }
-  };
-
-  // Apply filtering based on hideInnovative (Avante) or hideAvante (IOSPL)
-  // Note: state-based access filtering is handled at the API level via the &states= parameter.
+  // Apply cross-company filtering for the entire dashboard from raw sales rows
+  // so metrics + all charts stay consistent.
   useEffect(() => {
-    // If no original data yet, skip
-    if (originalRawDealerData.length === 0) {
+    if (originalRawSalesData.length === 0) {
       return;
     }
 
-    let filteredDealers = [...originalRawDealerData];
-    let filteredStates = [...originalRawStateData];
-    let filteredCategories = [...originalRawCategoryData];
-    let filteredCities = [...originalRawCityData];
-    let filteredStats = { ...originalRawStats };
-
-    const shouldFilterInnovative = dashboardMode === 'avante' && hideInnovative;
+    const shouldFilterIospl = dashboardMode === 'avante' && hideIospl;
     const shouldFilterAvante = dashboardMode === 'iospl' && hideAvante;
+    const filteredSalesRows = originalRawSalesData.filter((row: any) => {
+      const dealerName = row.comp_nm || row.dealer_name || '';
+      if (shouldFilterIospl) return !isIosplDealer(dealerName);
+      if (shouldFilterAvante) return !isAvanteDealer(dealerName);
+      return true;
+    });
 
-    if (shouldFilterInnovative) {
-      filteredDealers = originalRawDealerData.filter(dealer =>
-        !isInnovativeDealer(dealer.dealer_name || '')
-      );
-      const totalRevenue = filteredDealers.reduce((sum, d) => sum + (d.total_sales || 0), 0);
-      const totalQuantity = filteredDealers.reduce((sum, d) => sum + (d.total_quantity || 0), 0);
-      filteredStats = {
-        total_revenue: totalRevenue,
-        total_quantity: totalQuantity,
-        total_dealers: filteredDealers.length,
-        total_products: new Set(filteredCategories.map(c => c.product_name)).size,
-      };
-    } else if (shouldFilterAvante) {
-      filteredDealers = originalRawDealerData.filter(dealer =>
-        !isAvanteDealer(dealer.dealer_name || '')
-      );
-      const totalRevenue = filteredDealers.reduce((sum, d) => sum + (d.total_sales || 0), 0);
-      const totalQuantity = filteredDealers.reduce((sum, d) => sum + (d.total_quantity || 0), 0);
-      filteredStats = {
-        total_revenue: totalRevenue,
-        total_quantity: totalQuantity,
-        total_dealers: filteredDealers.length,
-        total_products: new Set(filteredCategories.map(c => c.product_name)).size,
-      };
-    }
+    const {
+      dealerRows: filteredDealers,
+      stateRows: filteredStates,
+      categoryRows: filteredCategories,
+      cityRows: filteredCities,
+      dealerCityRows: filteredDealerCities,
+      statsRows: filteredStats,
+    } = buildAggregatesFromSales(filteredSalesRows);
 
     // Set all filtered data
     setRawDealerData(filteredDealers);
     setRawStateData(filteredStates);
     setRawCategoryData(filteredCategories);
     setRawCityData(filteredCities);
+    setDealerCityData(filteredDealerCities);
     setStats(filteredStats);
 
     // Process dealer data for display
@@ -392,45 +401,7 @@ export default function DashboardPage() {
       .slice(0, 8);
     setParentCategoryQuantityData(parentQuantityCategories);
 
-  }, [hideInnovative, hideAvante, dashboardMode, originalRawDealerData, originalRawStateData, originalRawCategoryData, originalRawCityData, originalRawStats]);
-
-  // Create dealer-city mapping for second-level drill-down
-  useEffect(() => {
-    if (rawCityData.length > 0 && rawDealerData.length > 0) {
-      // Create a map of dealers enriched with city information
-      // Since dealers might serve multiple cities, we aggregate by city
-      const dealerCityMap = new Map<string, { city: string; dealer_name: string; total_sales: number; total_quantity: number }[]>();
-      
-      rawCityData.forEach((city: any) => {
-        const cityName = city.city || 'Unknown';
-        if (!dealerCityMap.has(cityName)) {
-          dealerCityMap.set(cityName, []);
-        }
-      });
-
-      // For each dealer, try to find their city from the category data
-      // (since category data has dealer_name and might be associated with cities indirectly)
-      // If not found, we'll distribute dealers across cities based on their presence in category data
-      const enrichedDealerCityData = rawCityData.flatMap((city: any) => {
-        const cityName = city.city || 'Unknown';
-        // Look for dealers that are associated with this city
-        // In this case, we just associate all dealers with the city proportionally
-        return rawDealerData.map((dealer: any) => ({
-          city: cityName,
-          dealer_name: dealer.dealer_name || 'Unknown',
-          total_sales: dealer.total_sales || 0,
-          total_quantity: dealer.total_quantity || 0
-        }));
-      });
-
-      // Alternatively, if we need to match dealers to specific cities more accurately,
-      // we can aggregate from category data which has both dealer and city info
-      const dealerCityAgg = new Map<string, { city: string; dealer_name: string; total_sales: number; total_quantity: number }[]>();
-      
-      // For now, just set the enriched dealer data
-      setDealerCityData(enrichedDealerCityData);
-    }
-  }, [rawCityData, rawDealerData]);
+  }, [hideIospl, hideAvante, dashboardMode, originalRawSalesData]);
 
   useEffect(() => {
     // Load dashboard data from real API
@@ -471,8 +442,6 @@ export default function DashboardPage() {
         } catch (error) {
           console.error('❌ Stats API failed:', error);
         }
-        setRawStats(statsData);
-        setOriginalRawStats(statsData);
 
         // Fetch dealer performance
         let dealerPerf = [];
@@ -494,7 +463,6 @@ export default function DashboardPage() {
           ];
         }
         setRawDealerData(dealerPerf);
-        setOriginalRawDealerData(dealerPerf);
 
         // Fetch state performance
         let statePerf = [];
@@ -512,7 +480,6 @@ export default function DashboardPage() {
           statePerf = [];
         }
         setRawStateData(statePerf);
-        setOriginalRawStateData(statePerf);
 
         // Fetch category performance
         let categoryPerf = [];
@@ -536,7 +503,6 @@ export default function DashboardPage() {
           ];
         }
         setRawCategoryData(categoryPerf);
-        setOriginalRawCategoryData(categoryPerf);
 
         // Fetch city performance
         let cityPerf = [];
@@ -554,7 +520,6 @@ export default function DashboardPage() {
           cityPerf = [];
         }
         setRawCityData(cityPerf);
-        setOriginalRawCityData(cityPerf); // Set original raw city data
 
         // Fetch raw sales data for monthly trend
         let salesData = [];
@@ -572,7 +537,7 @@ export default function DashboardPage() {
           console.error('❌ Sales API failed:', error);
           salesData = [];
         }
-        setRawSalesData(salesData);
+        setOriginalRawSalesData(salesData);
         
       } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -590,9 +555,8 @@ export default function DashboardPage() {
   const avgQtyPerDealer = stats.total_dealers > 0 ? stats.total_quantity / stats.total_dealers : 0;
   const avgRevenuePerProduct = stats.total_products > 0 ? stats.total_revenue / stats.total_products : 0;
   const topDealerRevenue = dealerData.length > 0 ? dealerData[0]?.revenue || 0 : 0;
-  const topStateRevenue = stateData.length > 0 ? stateData[0]?.value || 0 : 0;
   const totalCities = cityData.length;
-  const totalStates = stateData.length;
+  const totalStates = rawStateData.length;
 
   return (
     <Layout>
@@ -875,8 +839,8 @@ export default function DashboardPage() {
               },
               secondLevelDrillDownData: dealerCityData,
               secondLevelDrillDownConfig: {
-                matchKey: 'city',
-                matchValueKey: 'city',
+                matchKey: 'city_state_key',
+                matchValueKey: 'city_state_key',
                 displayKey: 'dealer_name',
                 valueKey: 'total_sales',
                 quantityKey: 'total_quantity',
@@ -886,8 +850,8 @@ export default function DashboardPage() {
             })}
           >
             <RevenueBarChart
-              data={stateData.slice(0, 10)}
-              title="🗺️ Revenue by State (Top 10)"
+              data={stateData}
+              title="🗺️ Revenue by State"
               xKey="name"
               yKey="value"
               loading={loading}
@@ -913,6 +877,16 @@ export default function DashboardPage() {
                     quantityKey: 'total_quantity',
                     childLabel: 'Cities',
                     backLabel: 'Back to States',
+                  },
+                  secondLevelDrillDownData: dealerCityData,
+                  secondLevelDrillDownConfig: {
+                    matchKey: 'city_state_key',
+                    matchValueKey: 'city_state_key',
+                    displayKey: 'dealer_name',
+                    valueKey: 'total_sales',
+                    quantityKey: 'total_quantity',
+                    childLabel: 'Dealers',
+                    backLabel: 'Back to Cities',
                   },
                 };
                 openChartModal(stateChartConfig, { name: stateName, matchValue: stateName });
@@ -984,7 +958,7 @@ export default function DashboardPage() {
             salesData={rawDealerData}
             title={`💳 ${dashboardMode === 'avante' ? 'Avante' : 'IOSPL'} Payment Pipeline`}
             loading={loading}
-            hideInnovative={hideInnovative}
+            hideIospl={hideIospl}
             hideAvante={hideAvante}
             dashboardMode={dashboardMode}
           />
@@ -998,7 +972,7 @@ export default function DashboardPage() {
             dashboardMode={dashboardMode}
             startDate={startDate}
             endDate={endDate}
-            hideInnovative={hideInnovative}
+            hideIospl={hideIospl}
             hideAvante={hideAvante}
             allowedStates={isSuperadmin ? [] : allowedStates}
           />
@@ -1007,7 +981,7 @@ export default function DashboardPage() {
           <NonBillingDealersTable
             loading={loading}
             dashboardMode={dashboardMode}
-            hideInnovative={hideInnovative}
+            hideIospl={hideIospl}
             hideAvante={hideAvante}
             startDate={startDate}
             endDate={endDate}

@@ -62,13 +62,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 export interface DashboardState {
   dashboardMode: 'avante' | 'iospl';
-  hideInnovative: boolean;
+  hideIospl: boolean;
   hideAvante: boolean;
   startDate: string;
   endDate: string;
   setSidebarOpen: (open: boolean) => void;
   setDashboardMode: (mode: 'avante' | 'iospl') => void;
-  setHideInnovative: (hide: boolean) => void;
+  setHideIospl: (hide: boolean) => void;
   setHideAvante: (hide: boolean) => void;
   setDateRange: (start: string, end: string) => void;
   sidebarOpen: boolean;
@@ -76,14 +76,14 @@ export interface DashboardState {
 
 export const useDashboardStore = create<DashboardState>((set) => ({
   dashboardMode: 'avante',
-  hideInnovative: false,
+  hideIospl: false,
   hideAvante: false,
   startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
   endDate: new Date().toISOString().split('T')[0],
   sidebarOpen: true,
   setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
   setDashboardMode: (mode: 'avante' | 'iospl') => set({ dashboardMode: mode }),
-  setHideInnovative: (hide: boolean) => set({ hideInnovative: hide }),
+  setHideIospl: (hide: boolean) => set({ hideIospl: hide }),
   setHideAvante: (hide: boolean) => set({ hideAvante: hide }),
   setDateRange: (start: string, end: string) => set({ startDate: start, endDate: end }),
 }));

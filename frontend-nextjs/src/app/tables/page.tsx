@@ -7,7 +7,7 @@ import DataTable from '@/components/DataTable';
 import { formatIndianNumber } from '@/lib/utils';
 
 export default function TablesPage() {
-  const { dashboardMode, startDate, endDate, hideInnovative, hideAvante } = useDashboardStore();
+  const { dashboardMode, startDate, endDate, hideIospl, hideAvante } = useDashboardStore();
   const [loading, setLoading] = useState(false);
   const [salesData, setSalesData] = useState<any[]>([]);
 
@@ -32,7 +32,7 @@ export default function TablesPage() {
     };
 
     loadData();
-  }, [startDate, endDate, dashboardMode, hideInnovative, hideAvante]);
+  }, [startDate, endDate, dashboardMode, hideIospl, hideAvante]);
 
   const columns = [
     { key: 'date', label: 'Date' },

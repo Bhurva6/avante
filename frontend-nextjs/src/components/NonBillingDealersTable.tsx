@@ -18,7 +18,7 @@ interface NonBillingDealersTableProps {
   title?: string;
   loading?: boolean;
   dashboardMode?: 'avante' | 'iospl';
-  hideInnovative?: boolean;
+  hideIospl?: boolean;
   hideAvante?: boolean;
   startDate?: string;
   endDate?: string;
@@ -42,8 +42,9 @@ const formatDateForAPI = (dateStr: string): string => {
 };
 
 // Helper functions for dealer filtering
-const isInnovativeDealer = (dealerName: string): boolean => {
-  return dealerName?.toLowerCase().includes('innovative');
+const isIosplDealer = (dealerName: string): boolean => {
+  const normalizedName = dealerName?.toLowerCase() || '';
+  return normalizedName.includes('innovative') || normalizedName.includes('iospl');
 };
 
 const isAvanteDealer = (dealerName: string): boolean => {
@@ -54,7 +55,7 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
   title = "🚫 Non-Billing Dealers",
   loading = false,
   dashboardMode = 'iospl',
-  hideInnovative = false,
+  hideIospl = false,
   hideAvante = false,
   startDate: propStartDate = '',
   endDate: propEndDate = '',
@@ -105,9 +106,9 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
           if (response.ok) {
             const data = await response.json();
             let filteredData: NonBillingDealer[] = data || [];
-            // Apply hideInnovative/hideAvante filtering
-            if (dashboardMode === 'avante' && hideInnovative) {
-              filteredData = filteredData.filter(d => !isInnovativeDealer(d.dealer_name || ''));
+            // Apply hideIospl/hideAvante filtering
+            if (dashboardMode === 'avante' && hideIospl) {
+              filteredData = filteredData.filter(d => !isIosplDealer(d.dealer_name || ''));
             } else if (dashboardMode === 'iospl' && hideAvante) {
               filteredData = filteredData.filter(d => !isAvanteDealer(d.dealer_name || ''));
             }
@@ -123,7 +124,7 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
     };
 
     loadData();
-  }, [loading, timeFilter, dashboardMode, hideInnovative, hideAvante, startDate, endDate, allowedStates]);
+  }, [loading, timeFilter, dashboardMode, hideIospl, hideAvante, startDate, endDate, allowedStates]);
 
   // Get unique cities and states for filter dropdowns
   const uniqueCities = useMemo(() => {

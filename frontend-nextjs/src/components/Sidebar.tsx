@@ -13,11 +13,11 @@ export default function Sidebar({ isOpen }: SidebarProps) {
   const {
     startDate,
     endDate,
-    hideInnovative,
+    hideIospl,
     hideAvante,
     dashboardMode,
     setDateRange,
-    setHideInnovative,
+    setHideIospl,
     setHideAvante,
   } = useDashboardStore();
   const { username, userRole } = useAuthStore();
@@ -105,14 +105,14 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={hideInnovative}
-                    onChange={(e) => setHideInnovative(e.target.checked)}
+                    checked={hideIospl}
+                    onChange={(e) => setHideIospl(e.target.checked)}
                     className="w-4 h-4 rounded text-indigo-600"
                   />
-                  <span className="text-sm text-gray-700">Hide Innovative</span>
+                  <span className="text-sm text-gray-700">Hide IOSPL</span>
                 </label>
                 <p className="text-xs text-gray-500 ml-6">
-                  Excludes dealers with &quot;Innovative&quot; in their name
+                  Excludes dealers with &quot;IOSPL&quot; / &quot;Innovative&quot; in their name
                 </p>
               </>
             ) : (

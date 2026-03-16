@@ -197,26 +197,43 @@ export const ChartModal: React.FC<ChartModalProps> = ({ isOpen, onClose, config,
     : config.data.filter(item => selectedItems.includes(item[xKey]));
 
   // Compute product-level drill-down data for the selected dealer
-  const drillDownChartData: { name: string; revenue: number; quantity: number }[] | null =
+  const drillDownChartData: any[] | null =
     drillDownItem && config.drillDownData && config.drillDownConfig
       ? (() => {
           const { matchKey, displayKey, valueKey, quantityKey } = config.drillDownConfig;
+          const secondLevelMatchValueKey = config.secondLevelDrillDownConfig?.matchValueKey;
           const rows = config.drillDownData.filter(
             row =>
               row[matchKey] === drillDownItem.matchValue ||
               row[matchKey]?.toLowerCase() === drillDownItem.matchValue?.toLowerCase()
           );
-          const agg = new Map<string, { revenue: number; quantity: number }>();
+          const agg = new Map<string, { name: string; revenue: number; quantity: number; matchValue?: string }>();
           rows.forEach(row => {
             const label = (row[displayKey] || 'Unknown') as string;
-            const existing = agg.get(label) || { revenue: 0, quantity: 0 };
-            agg.set(label, {
+            const matchValue = secondLevelMatchValueKey
+              ? (row[secondLevelMatchValueKey] ?? label)
+              : label;
+            const bucketKey = `${label}|||${String(matchValue)}`;
+            const existing = agg.get(bucketKey) || { name: label, revenue: 0, quantity: 0, matchValue: String(matchValue) };
+            agg.set(bucketKey, {
+              name: label,
+              matchValue: String(matchValue),
               revenue: existing.revenue + (row[valueKey] || 0),
               quantity: existing.quantity + (quantityKey ? row[quantityKey] || 0 : 0),
             });
           });
-          return Array.from(agg.entries())
-            .map(([name, { revenue, quantity }]) => ({ name, revenue, quantity }))
+          return Array.from(agg.values())
+            .map((item) => {
+              if (secondLevelMatchValueKey) {
+                return {
+                  name: item.name,
+                  revenue: item.revenue,
+                  quantity: item.quantity,
+                  [secondLevelMatchValueKey]: item.matchValue,
+                };
+              }
+              return { name: item.name, revenue: item.revenue, quantity: item.quantity };
+            })
             .sort((a, b) => b.revenue - a.revenue);
         })()
       : null;

@@ -24,7 +24,7 @@ interface PaymentPipelineProps {
   salesData: any[];
   title?: string;
   loading?: boolean;
-  hideInnovative?: boolean;
+  hideIospl?: boolean;
   hideAvante?: boolean;
   dashboardMode?: 'avante' | 'iospl';
 }
@@ -88,8 +88,9 @@ const formatFullCurrency = (num: number): string => {
 };
 
 // Helper function to check if a dealer name contains "Innovative"
-const isInnovativeDealer = (dealerName: string): boolean => {
-  return dealerName?.toLowerCase().includes('innovative');
+const isIosplDealer = (dealerName: string): boolean => {
+  const normalizedName = dealerName?.toLowerCase() || '';
+  return normalizedName.includes('innovative') || normalizedName.includes('iospl');
 };
 
 // Helper function to check if a dealer name contains "Avante"
@@ -227,7 +228,7 @@ export default function PaymentPipeline({
   salesData, 
   title, 
   loading,
-  hideInnovative = false,
+  hideIospl = false,
   hideAvante = false,
   dashboardMode = 'iospl'
 }: PaymentPipelineProps) {
@@ -235,16 +236,16 @@ export default function PaymentPipeline({
   const [collapsedColumns, setCollapsedColumns] = useState<Set<PaymentStatus>>(new Set());
   const [sortBy, setSortBy] = useState<'amount' | 'date' | 'dealer'>('amount');
   
-  // Filter sales data based on hideInnovative/hideAvante
+  // Filter sales data based on hideIospl/hideAvante
   const filteredSalesData = React.useMemo(() => {
     if (!salesData || salesData.length === 0) return [];
     
     return salesData.filter(sale => {
       const dealerName = sale.dealer_name || sale.comp_nm || '';
       
-      // For Avante dashboard, apply hideInnovative filter
-      if (dashboardMode === 'avante' && hideInnovative) {
-        return !isInnovativeDealer(dealerName);
+      // For Avante dashboard, apply hideIospl filter
+      if (dashboardMode === 'avante' && hideIospl) {
+        return !isIosplDealer(dealerName);
       }
       
       // For IOSPL dashboard, apply hideAvante filter
@@ -254,7 +255,7 @@ export default function PaymentPipeline({
       
       return true;
     });
-  }, [salesData, hideInnovative, hideAvante, dashboardMode]);
+  }, [salesData, hideIospl, hideAvante, dashboardMode]);
   
   // Transform sales data into payment items
   const paymentItems: PaymentItem[] = useMemo(() => {

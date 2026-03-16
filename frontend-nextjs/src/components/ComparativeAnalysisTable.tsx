@@ -35,7 +35,7 @@ interface ComparativeAnalysisTableProps {
   dashboardMode?: 'avante' | 'iospl';
   startDate?: string;
   endDate?: string;
-  hideInnovative?: boolean;
+  hideIospl?: boolean;
   hideAvante?: boolean;
   allowedStates?: string[];
 }
@@ -62,7 +62,7 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
   dashboardMode = 'iospl',
   startDate = '',
   endDate = '',
-  hideInnovative = false,
+  hideIospl = false,
   hideAvante = false,
   allowedStates = [],
 }) => {
@@ -95,8 +95,9 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
   const [localEndDate, setLocalEndDate] = useState(endDate);
 
   // Helper functions for dealer filtering
-  const isInnovativeDealer = (dealerName: string): boolean => {
-    return dealerName?.toLowerCase().includes('innovative');
+  const isIosplDealer = (dealerName: string): boolean => {
+    const normalizedName = dealerName?.toLowerCase() || '';
+    return normalizedName.includes('innovative') || normalizedName.includes('iospl');
   };
 
   const isAvanteDealer = (dealerName: string): boolean => {
@@ -204,7 +205,7 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
           const dealerName = row.comp_nm || row.dealer_name || 'Unknown';
           const city = row.city || 'Unknown';
           const state = row.state || 'Unknown';
-          const category = row.category_name || row.category || row.parent_category || 'Unknown';
+          const category = row.parent_category || row.category_name || row.category || 'Unknown';
           const subCategory = row.meta_keyword || row.product_name || row.sub_category || 'Unknown';
           const productCode = row.meta_keyword || row.item_code || row.product_code || 'N/A';
 
@@ -252,8 +253,8 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
         let transformedData: ComparativeDataRow[] = Object.values(groupedByDealer);
 
         // Apply dealer filters
-        if (dashboardMode === 'avante' && hideInnovative) {
-          transformedData = transformedData.filter(row => !isInnovativeDealer(row.dealer_name));
+        if (dashboardMode === 'avante' && hideIospl) {
+          transformedData = transformedData.filter(row => !isIosplDealer(row.dealer_name));
         } else if (dashboardMode === 'iospl' && hideAvante) {
           transformedData = transformedData.filter(row => !isAvanteDealer(row.dealer_name));
         }
@@ -285,7 +286,7 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
     if (localStartDate && localEndDate) {
       loadData();
     }
-  }, [dashboardMode, localStartDate, localEndDate, hideInnovative, hideAvante, allowedStates]);
+  }, [dashboardMode, localStartDate, localEndDate, hideIospl, hideAvante, allowedStates]);
 
   // Apply filters and search
   useEffect(() => {
@@ -525,13 +526,13 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Parent Category</label>
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">All Categories</option>
+                  <option value="">All Parent Categories</option>
                   {uniqueCategories.map(category => (
                     <option key={category} value={category}>{category}</option>
                   ))}
