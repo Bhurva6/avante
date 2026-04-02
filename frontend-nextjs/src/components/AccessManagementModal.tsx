@@ -3,19 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { X, Plus, Edit2, Trash2, Save, XCircle } from 'lucide-react';
+import { INDIAN_STATES } from '@/lib/indianStates';
 
-const API_BASE = globalThis.window?.location.hostname === 'localhost' 
-  ? 'http://localhost:5000' 
+const API_BASE = globalThis.window?.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
   : '';
-
-const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
-  'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
-  'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
-  'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
-];
 
 interface User {
   email: string;

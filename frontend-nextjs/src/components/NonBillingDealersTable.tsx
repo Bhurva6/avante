@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Calendar, MapPin, TrendingDown } from 'lucide-react';
+import { INDIAN_STATES } from '@/lib/indianStates';
 
 interface NonBillingDealer {
   dealer_name: string;
@@ -132,10 +133,7 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
     return [...new Set(cities)].sort();
   }, [dealers]);
 
-  const uniqueStates = useMemo(() => {
-    const states = dealers.map(d => d.state).filter(Boolean);
-    return [...new Set(states)].sort();
-  }, [dealers]);
+  const uniqueStates = INDIAN_STATES;
 
   // Filter and sort dealers
   const filteredAndSortedDealers = useMemo(() => {

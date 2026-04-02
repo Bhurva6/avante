@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronDown, ChevronUp, ArrowUpDown, Calendar, Filter, X, Check, Users } from 'lucide-react';
 import { useDashboardStore } from '@/lib/store';
+import { INDIAN_STATES } from '@/lib/indianStates';
 
 const formatIndianCurrency = (num: number): string => {
   if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)} Cr`;
@@ -105,10 +106,7 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
   };
 
   // Get unique values for filters
-  const uniqueStates = useMemo(() =>
-    Array.from(new Set(data.map(row => row.state))).sort(),
-    [data]
-  );
+  const uniqueStates = INDIAN_STATES;
 
   const uniqueCities = useMemo(() =>
     Array.from(new Set(data.map(row => row.city))).sort(),

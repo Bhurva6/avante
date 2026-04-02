@@ -4,6 +4,7 @@ import React, { useState, FormEvent, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { LogIn, UserPlus, Mail, Lock, User, MapPin } from 'lucide-react';
+import { INDIAN_STATES } from '@/lib/indianStates';
 
 // Flask backend URL — empty string means same origin (production), localhost in dev
 const API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost'
@@ -37,16 +38,7 @@ export default function AuthPage() {
     }
   }, [isAuthenticated, router]);
 
-  const ALL_STATES = [
-    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
-    'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
-    'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
-    'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-    'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  ];
-
-  const filteredStates = ALL_STATES.filter(state =>
+  const filteredStates = INDIAN_STATES.filter(state =>
     state.toLowerCase().includes(stateSearchTerm.toLowerCase())
   );
 
