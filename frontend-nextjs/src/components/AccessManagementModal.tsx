@@ -22,7 +22,7 @@ interface User {
   name: string;
   role: string;
   dashboard_access: string[];
-  state_access: string[] | string;
+  allowedStates: string[];
   status: string;
 }
 
@@ -117,7 +117,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
 
   const handleEditUser = (user: User) => {
     setEditingUserId(user.email);
-    setEditingUserStates(Array.isArray(user.state_access) ? user.state_access : []);
+    setEditingUserStates(Array.isArray(user.allowedStates) ? user.allowedStates : []);
     setEditingUserDashboards(user.dashboard_access);
   };
 
@@ -414,7 +414,7 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                           </div>
                         ) : (
                           <span className="text-sm">
-                            {Array.isArray(user.state_access) ? user.state_access.join(', ') : 'All'}
+                            {user.allowedStates.length > 0 ? user.allowedStates.join(', ') : 'All'}
                           </span>
                         )}
                       </td>
