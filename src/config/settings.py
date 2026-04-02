@@ -81,8 +81,8 @@ SENDER_PASSWORD = os.getenv('SENDER_PASSWORD', '')
 USER_DB_FILE = 'users_database.json'
 
 # API Settings
-AVANTE_API_BASE_URL = "http://avantemedicals.com/API/api.php"
-IOSPL_API_BASE_URL = "http://avantemedicals.com/API/api.php"
+AVANTE_API_BASE_URL = "http://order.avantemedicals.com/API/api.php"
+IOSPL_API_BASE_URL = "http://order.avantemedicals.com/API/api.php"
 
 # Logging
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')

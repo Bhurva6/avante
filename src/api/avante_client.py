@@ -17,7 +17,7 @@ logger = logging.getLogger('avante_api')
 class APIClient:
     """API Client for Avante ERP Sales Data"""
     
-    BASE_URL = "http://avantemedicals.com/API/api.php"
+    BASE_URL = "http://order.avantemedicals.com/API/api.php"
     
     def __init__(self, username: str = None, password: str = None):
         """Initialize API client (credentials not needed for this API)"""
