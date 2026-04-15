@@ -46,5 +46,24 @@
       "Andhra Pradesh",
       "Arunachal Pradesh"
     ]
+  },
+  "test@avante.com": {
+    "name": "test",
+    "email": "test@avante.com",
+    "password": "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae",
+    "role": "user",
+    "dashboard_access": [
+      "avante",
+      "iospl"
+    ],
+    "state_access": [
+      "Andhra Pradesh",
+      "Arunachal Pradesh",
+      "Assam"
+    ],
+    "created_at": "2026-04-15T12:17:26.991441",
+    "status": "active",
+    "credentials_sent": false,
+    "updated_at": "2026-04-15T12:17:27.005369"
   }
 }

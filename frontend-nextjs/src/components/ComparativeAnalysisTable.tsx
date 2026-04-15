@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronDown, ChevronUp, ArrowUpDown, Calendar, Filter, X, Check, Users } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, useAuthStore } from '@/lib/store';
 import { INDIAN_STATES } from '@/lib/indianStates';
 
 const formatIndianCurrency = (num: number): string => {
@@ -67,6 +67,7 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
   hideAvante = false,
   allowedStates = [],
 }) => {
+  const { username, userRole } = useAuthStore();
   const [data, setData] = useState<ComparativeDataRow[]>([]);
   const [filteredData, setFilteredData] = useState<ComparativeDataRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -179,11 +180,14 @@ export const ComparativeAnalysisTable: React.FC<ComparativeAnalysisTableProps> =
         console.log(`📊 Fetching comparative analysis data for ${apiEndpoint}...`);
 
         // Fetch comparative analysis data from API
-        const statesParam = allowedStates.length > 0
+        const isSuperadmin = userRole === 'superadmin';
+        const hasStateRestrictions = !isSuperadmin && allowedStates.length > 0;
+        const statesParam = hasStateRestrictions
           ? `&states=${encodeURIComponent(allowedStates.join(','))}`
           : '';
         const response = await fetch(
-          `${API_BASE}/api/${apiEndpoint}/comparative-analysis?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
+          `${API_BASE}/api/${apiEndpoint}/comparative-analysis?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`,
+          { headers: { 'X-User-Email': username } }
         );
 
         if (!response.ok) {

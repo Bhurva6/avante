@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Calendar, MapPin, TrendingDown } from 'lucide-react';
 import { INDIAN_STATES } from '@/lib/indianStates';
+import { useAuthStore } from '@/lib/store';
 
 interface NonBillingDealer {
   dealer_name: string;
@@ -62,6 +63,7 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
   endDate: propEndDate = '',
   allowedStates = [],
 }) => {
+  const { username, userRole } = useAuthStore();
   const [dealers, setDealers] = useState<NonBillingDealer[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('month');
   const [searchTerm, setSearchTerm] = useState('');
@@ -100,10 +102,15 @@ const NonBillingDealersTable: React.FC<NonBillingDealersTableProps> = ({
         const apiEndpoint = dashboardMode === 'avante' ? 'avante' : 'iospl';
         
         if (formattedStartDate && formattedEndDate) {
-          const statesParam = allowedStates.length > 0
+          const isSuperadmin = userRole === 'superadmin';
+          const hasStateRestrictions = !isSuperadmin && allowedStates.length > 0;
+          const statesParam = hasStateRestrictions
             ? `&states=${encodeURIComponent(allowedStates.join(','))}`
             : '';
-          const response = await fetch(`${API_BASE}/api/${apiEndpoint}/non-billing-dealers?start_date=${formattedStartDate}&end_date=${formattedEndDate}&period=${timeFilter}${statesParam}`);
+          const response = await fetch(
+            `${API_BASE}/api/${apiEndpoint}/non-billing-dealers?start_date=${formattedStartDate}&end_date=${formattedEndDate}&period=${timeFilter}${statesParam}`,
+            { headers: { 'X-User-Email': username } }
+          );
           if (response.ok) {
             const data = await response.json();
             let filteredData: NonBillingDealer[] = data || [];

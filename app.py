@@ -150,14 +150,37 @@ def _filter_by_states(sales_data, states_param):
     """Filter raw sales records to only those whose state is in states_param.
 
     states_param is a comma-separated string (e.g. 'Maharashtra,Gujarat').
+    Matching is case-insensitive so raw API data like 'MAHARASHTRA' matches
+    a DB-stored value of 'Maharashtra'.
     Returns the original list unchanged when states_param is empty / not supplied.
     """
     if not states_param:
         return sales_data
-    allowed = {s.strip() for s in states_param.split(',') if s.strip()}
+    allowed = {s.strip().lower() for s in states_param.split(',') if s.strip()}
     if not allowed:
         return sales_data
-    return [r for r in sales_data if (r.get('state') or '').strip() in allowed]
+    return [r for r in sales_data if (r.get('state') or '').strip().lower() in allowed]
+
+
+def _resolve_states_param():
+    """Return the effective states filter string for the current request.
+
+    If the requesting user is a non-superadmin with restricted state access,
+    their DB-stored states override whatever the frontend sent.
+    This prevents a user from bypassing their restrictions by omitting the param.
+    State names are lowercased here; _filter_by_states lowercases both sides.
+    """
+    email = request.headers.get('X-User-Email', '').strip().lower()
+    if email:
+        user = user_db.get_user(email)
+        if user and user.get('role') != 'superadmin':
+            state_access = user.get('state_access', [])
+            # state_access can be 'all', ['all'], [], or a real list of states
+            if state_access and state_access not in ('all', ['all']):
+                if isinstance(state_access, list) and len(state_access) > 0:
+                    return ','.join(s.strip() for s in state_access if s.strip())
+    # Fall back to query param (superadmin or no email header)
+    return request.args.get('states', '').strip()
 
 
 def _compute_previous_period(start_str, end_str):
@@ -261,7 +284,7 @@ def setup_api_endpoints(app):
     def get_avante_sales():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -273,7 +296,7 @@ def setup_api_endpoints(app):
     def get_avante_stats():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -285,7 +308,7 @@ def setup_api_endpoints(app):
     def get_avante_dealer_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -297,7 +320,7 @@ def setup_api_endpoints(app):
     def get_avante_state_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -309,7 +332,7 @@ def setup_api_endpoints(app):
     def get_avante_category_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -321,7 +344,7 @@ def setup_api_endpoints(app):
     def get_avante_city_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -335,7 +358,7 @@ def setup_api_endpoints(app):
     def get_iospl_sales():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -347,7 +370,7 @@ def setup_api_endpoints(app):
     def get_iospl_stats():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -359,7 +382,7 @@ def setup_api_endpoints(app):
     def get_iospl_dealer_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -371,7 +394,7 @@ def setup_api_endpoints(app):
     def get_iospl_state_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -383,7 +406,7 @@ def setup_api_endpoints(app):
     def get_iospl_category_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -395,7 +418,7 @@ def setup_api_endpoints(app):
     def get_iospl_city_performance():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -407,7 +430,7 @@ def setup_api_endpoints(app):
     def get_avante_comparative_analysis():
         start_date = request.args.get('start_date', '01-01-2024')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClient().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -419,7 +442,7 @@ def setup_api_endpoints(app):
     def get_iospl_comparative_analysis():
         start_date = request.args.get('start_date', '01-01-2024')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             api_response = APIClientIOSPL().get_sales_report(start_date, end_date)
             sales_data = _filter_by_states(api_response.get('report_data') or [], states_param)
@@ -431,7 +454,7 @@ def setup_api_endpoints(app):
     def get_avante_non_billing_dealers():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             current_resp = APIClient().get_sales_report(start_date, end_date)
             current_data = _filter_by_states(current_resp.get('report_data') or [], states_param)
@@ -448,7 +471,7 @@ def setup_api_endpoints(app):
     def get_iospl_non_billing_dealers():
         start_date = request.args.get('start_date', '01-01-2025')
         end_date = request.args.get('end_date', '31-12-2025')
-        states_param = request.args.get('states', '').strip()
+        states_param = _resolve_states_param()
         try:
             current_resp = APIClientIOSPL().get_sales_report(start_date, end_date)
             current_data = _filter_by_states(current_resp.get('report_data') or [], states_param)
@@ -460,6 +483,21 @@ def setup_api_endpoints(app):
             return jsonify(_build_non_billing_dealers(current_data, prev_data))
         except Exception as e:
             return jsonify([]), 500
+
+    # ── Debug / introspection endpoint ───────
+
+    @app.route('/api/debug/my-access', methods=['GET'])
+    def debug_my_access():
+        """Returns the resolved states filter for the current user — useful for diagnosing filter issues."""
+        email = request.headers.get('X-User-Email', '').strip().lower()
+        user = user_db.get_user(email) if email else None
+        states_param = _resolve_states_param()
+        return jsonify({
+            'email': email,
+            'role': user.get('role') if user else None,
+            'state_access_in_db': user.get('state_access') if user else None,
+            'resolved_states_filter': states_param,
+        })
 
     # ── Authentication endpoints ──────────────
 
@@ -667,6 +705,11 @@ def setup_api_endpoints(app):
             user_db._save_database()
             return jsonify({'status': 'success', 'message': 'Request rejected'})
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+
+@app.route('/.well-known/appspecific/com.chrome.devtools.json')
+def chrome_devtools():
+    return jsonify([])
 
 
 setup_api_endpoints(app)

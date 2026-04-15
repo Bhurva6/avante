@@ -166,7 +166,7 @@ const MiniMetricCard: React.FC<{
 
 export default function DashboardPage() {
   const { dashboardMode, startDate, endDate, hideIospl, hideAvante } = useDashboardStore();
-  const { allowedStates, allowedDashboards, isAuthenticated, userRole } = useAuthStore();
+  const { username, allowedStates, allowedDashboards, isAuthenticated, userRole } = useAuthStore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   
@@ -423,16 +423,20 @@ export default function DashboardPage() {
         
         console.log(`📡 API Endpoint: ${apiEndpoint}, Dates: ${formattedStartDate} to ${formattedEndDate}`);
 
-        // Build the optional states filter for restricted users
+        // Build auth headers so the backend can enforce per-user state access
+        const authHeaders: HeadersInit = { 'X-User-Email': username };
+
+        // Build the optional states filter for restricted users (belt-and-suspenders with server enforcement)
         const statesParam = hasStateRestrictions && allowedStates.length > 0
           ? `&states=${encodeURIComponent(allowedStates.join(','))}`
           : '';
-        
+
         // Fetch stats
         let statsData = { total_revenue: 0, total_quantity: 0, total_dealers: 0, total_products: 0 };
         try {
           const statsResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/stats?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
+            `${API_BASE}/api/${apiEndpoint}/stats?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`,
+            { headers: authHeaders }
           );
           if (!statsResponse.ok) {
             throw new Error(`HTTP error! status: ${statsResponse.status}`);
@@ -447,7 +451,8 @@ export default function DashboardPage() {
         let dealerPerf = [];
         try {
           const dealerResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/dealer-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
+            `${API_BASE}/api/${apiEndpoint}/dealer-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`,
+            { headers: authHeaders }
           );
           dealerPerf = await dealerResponse.json();
           console.log('✅ Dealer data loaded:', dealerPerf.length, 'items');
@@ -468,7 +473,8 @@ export default function DashboardPage() {
         let statePerf = [];
         try {
           const stateResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/state-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
+            `${API_BASE}/api/${apiEndpoint}/state-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`,
+            { headers: authHeaders }
           );
           if (!stateResponse.ok) {
             throw new Error(`HTTP error! status: ${stateResponse.status}`);
@@ -485,7 +491,8 @@ export default function DashboardPage() {
         let categoryPerf = [];
         try {
           const categoryResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/category-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
+            `${API_BASE}/api/${apiEndpoint}/category-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`,
+            { headers: authHeaders }
           );
           categoryPerf = await categoryResponse.json();
           console.log('✅ Category data loaded:', categoryPerf.length, 'items');
@@ -508,7 +515,8 @@ export default function DashboardPage() {
         let cityPerf = [];
         try {
           const cityResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/city-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
+            `${API_BASE}/api/${apiEndpoint}/city-performance?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`,
+            { headers: authHeaders }
           );
           if (!cityResponse.ok) {
             throw new Error(`HTTP error! status: ${cityResponse.status}`);
@@ -525,7 +533,8 @@ export default function DashboardPage() {
         let salesData = [];
         try {
           const salesResponse = await fetch(
-            `${API_BASE}/api/${apiEndpoint}/sales?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`
+            `${API_BASE}/api/${apiEndpoint}/sales?start_date=${formattedStartDate}&end_date=${formattedEndDate}${statesParam}`,
+            { headers: authHeaders }
           );
           if (!salesResponse.ok) {
             throw new Error(`HTTP error! status: ${salesResponse.status}`);
