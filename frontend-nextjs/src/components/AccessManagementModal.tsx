@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/lib/store';
-import { X, Plus, Edit2, Trash2, Save, XCircle, CheckCircle, Clock, Users, UserCheck } from 'lucide-react';
+import { X, Plus, Edit2, Trash2, Save, XCircle, CheckCircle, Clock, Users, UserCheck, Eye, EyeOff, Lock } from 'lucide-react';
 import { INDIAN_STATES } from '@/lib/indianStates';
 
 const API_BASE = globalThis.window?.location.hostname === 'localhost'
@@ -16,6 +16,8 @@ interface User {
   dashboard_access: string[];
   allowedStates: string[];
   status: string;
+  plain_password: string;
+  password_locked: boolean;
 }
 
 interface PendingRequest {
@@ -136,6 +138,41 @@ function DashboardPicker({
   );
 }
 
+const PASSWORD_RULES = [
+  { label: 'At least 12 characters', test: (p: string) => p.length >= 12 },
+  { label: 'Uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'Lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { label: 'Number', test: (p: string) => /[0-9]/.test(p) },
+  { label: 'Special character', test: (p: string) => /[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/]/.test(p) },
+];
+
+function validatePassword(p: string) {
+  return PASSWORD_RULES.map(r => ({ ...r, passed: r.test(p) }));
+}
+
+function PasswordStrengthMeter({ password }: { password: string }) {
+  const rules = validatePassword(password);
+  const passed = rules.filter(r => r.passed).length;
+  const colors = ['bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-lime-400', 'bg-green-500'];
+  return (
+    <div className="mt-2">
+      <div className="flex gap-1 mb-2">
+        {rules.map((_, i) => (
+          <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i < passed ? colors[passed - 1] : 'bg-gray-200'}`} />
+        ))}
+      </div>
+      <ul className="space-y-1">
+        {rules.map(r => (
+          <li key={r.label} className={`flex items-center gap-1.5 text-xs ${r.passed ? 'text-green-700' : 'text-gray-400'}`}>
+            {r.passed ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+            {r.label}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function AccessManagementModal({ isOpen, onClose }: AccessManagementModalProps) {
   const { username: userEmail, userRole } = useAuthStore();
   const isAuthorized = userRole === 'superadmin';
@@ -150,9 +187,15 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
   const [showAddUser, setShowAddUser] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newPasswordVisible, setNewPasswordVisible] = useState(false);
   const [newName, setNewName] = useState('');
   const [newStates, setNewStates] = useState<string[]>([]);
   const [newDashboards, setNewDashboards] = useState<string[]>([]);
+
+  // Per-user password visibility
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const togglePasswordVisibility = (email: string) =>
+    setVisiblePasswords(prev => ({ ...prev, [email]: !prev[email] }));
 
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -199,6 +242,11 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
   const handleCreateUser = async () => {
     if (!newEmail || !newPassword || newDashboards.length === 0) {
       showNotice('error', 'Email, password, and at least one dashboard are required.');
+      return;
+    }
+    const pwdCheck = validatePassword(newPassword);
+    if (pwdCheck.some(r => !r.passed)) {
+      showNotice('error', 'Password does not meet security requirements.');
       return;
     }
     try {
@@ -399,13 +447,26 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                       onChange={(e) => setNewEmail(e.target.value)}
                       className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    <input
-                      type="password"
-                      placeholder="Password *"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+                    <div>
+                      <div className="relative">
+                        <input
+                          type={newPasswordVisible ? 'text' : 'password'}
+                          placeholder="Password *"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setNewPasswordVisible(v => !v)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          tabIndex={-1}
+                        >
+                          {newPasswordVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {newPassword && <PasswordStrengthMeter password={newPassword} />}
+                    </div>
                     <input
                       type="text"
                       placeholder="Full name (optional)"
@@ -473,6 +534,26 @@ export default function AccessManagementModal({ isOpen, onClose }: AccessManagem
                               </>
                             )}
                           </div>
+                          {/* Password row — superadmin only */}
+                          {user.plain_password && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Lock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                              <span className="text-xs text-gray-500 font-mono select-all">
+                                {visiblePasswords[user.email] ? user.plain_password : '••••••••••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => togglePasswordVisibility(user.email)}
+                                className="text-gray-400 hover:text-gray-600"
+                                title={visiblePasswords[user.email] ? 'Hide password' : 'Show password'}
+                              >
+                                {visiblePasswords[user.email] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <span className="text-xs text-amber-600 font-medium flex items-center gap-0.5">
+                                <Lock className="w-3 h-3" /> Locked
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           {editingId === user.email ? (

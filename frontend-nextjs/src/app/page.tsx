@@ -378,13 +378,15 @@ export default function DashboardPage() {
     })));
 
     // Process parent categories
-    const parentMap: Record<string, number> = {};
+    const parentMap: Record<string, { revenue: number; quantity: number }> = {};
     filteredCategories.forEach((c: any) => {
       const key = c.parent_category || 'Other';
-      parentMap[key] = (parentMap[key] || 0) + (c.total_sales || 0);
+      if (!parentMap[key]) parentMap[key] = { revenue: 0, quantity: 0 };
+      parentMap[key].revenue += c.total_sales || 0;
+      parentMap[key].quantity += c.total_quantity || 0;
     });
     const parentCategories = Object.entries(parentMap)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, { revenue, quantity }]) => ({ name, value: revenue, quantity }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
     setParentCategoryData(parentCategories);
@@ -822,6 +824,7 @@ export default function DashboardPage() {
               title="📦 Revenue by Parent Category"
               dataKey="value"
               nameKey="name"
+              quantityKey="quantity"
               loading={loading}
             />
           </ClickableChartWrapper>
@@ -946,6 +949,7 @@ export default function DashboardPage() {
               title="🏭 Revenue by Product Family"
               dataKey="value"
               nameKey="name"
+              quantityKey="quantity"
               loading={loading}
             />
           </ClickableChartWrapper>

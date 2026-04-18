@@ -60,6 +60,21 @@ class UserDatabase:
     def _hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
+
+    def validate_password_strength(self, password: str) -> Dict:
+        """Validate password meets high-security requirements"""
+        errors = []
+        if len(password) < 12:
+            errors.append('At least 12 characters')
+        if not any(c.isupper() for c in password):
+            errors.append('At least one uppercase letter')
+        if not any(c.islower() for c in password):
+            errors.append('At least one lowercase letter')
+        if not any(c.isdigit() for c in password):
+            errors.append('At least one number')
+        if not any(c in '!@#$%^&*()_+-=[]{}|;:\'",.<>?/' for c in password):
+            errors.append('At least one special character')
+        return {'valid': len(errors) == 0, 'errors': errors}
     
     def generate_password(self, length: int = 12) -> str:
         """Generate a secure random password"""
@@ -160,35 +175,36 @@ class UserDatabase:
     def mark_credentials_sent(self, email: str) -> Dict:
         """Mark that credentials have been sent to user"""
         email = email.lower().strip()
-        
+
         if email not in self.users:
             return {'success': False, 'message': 'User not found'}
-        
+
         self.users[email]['credentials_sent'] = True
         self.users[email]['last_email_sent'] = datetime.now().isoformat()
-        
-        if 'plain_password' in self.users[email]:
-            del self.users[email]['plain_password']
-        
+        # plain_password is intentionally kept for superadmin visibility
+
         self._save_database()
-        
+
         return {'success': True, 'message': 'Marked as sent'}
     
     def reset_password(self, email: str) -> Dict:
-        """Generate new password for user"""
+        """Generate new password for user — blocked if password is locked"""
         email = email.lower().strip()
-        
+
         if email not in self.users:
             return {'success': False, 'message': 'User not found'}
-        
+
+        if self.users[email].get('password_locked'):
+            return {'success': False, 'message': 'Password is locked and cannot be changed'}
+
         new_password = self.generate_password()
         self.users[email]['password'] = self._hash_password(new_password)
         self.users[email]['plain_password'] = new_password
         self.users[email]['credentials_sent'] = False
         self.users[email]['password_reset_at'] = datetime.now().isoformat()
-        
+
         self._save_database()
-        
+
         return {
             'success': True,
             'message': 'Password reset successfully',

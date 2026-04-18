@@ -587,6 +587,8 @@ def setup_api_endpoints(app):
                 'dashboard_access': u.get('dashboard_access', []),
                 'status': u['status'],
                 'createdAt': u.get('created_at', ''),
+                'plain_password': u.get('plain_password', ''),
+                'password_locked': u.get('password_locked', False),
             }
             for u in all_users
             if u['status'] == 'active' and u['role'] != 'superadmin'
@@ -602,27 +604,33 @@ def setup_api_endpoints(app):
         role = data.get('role', 'user')
         states = data.get('states', [])
         dashboards = data.get('dashboard_access', ['avante', 'iospl'])
-        password = data.get('password')
+        password = data.get('password', '').strip()
 
         if not email:
             return jsonify({'status': 'error', 'message': 'Email is required'}), 400
+
+        if not password:
+            return jsonify({'status': 'error', 'message': 'Password is required'}), 400
+
+        # Validate password strength
+        strength = user_db.validate_password_strength(password)
+        if not strength['valid']:
+            return jsonify({'status': 'error', 'message': 'Weak password: ' + '; '.join(strength['errors'])}), 400
 
         result = user_db.signup_user(name, email)
         if not result['success']:
             return jsonify({'status': 'error', 'message': result['message']}), 400
 
-        # Override password if provided by admin
-        if password:
-            user_db.users[email]['password'] = user_db._hash_password(password)
-            if 'plain_password' in user_db.users[email]:
-                del user_db.users[email]['plain_password']
-            user_db._save_database()
+        # Set admin-assigned password — locked permanently
+        user_db.users[email]['password'] = user_db._hash_password(password)
+        user_db.users[email]['plain_password'] = password
+        user_db.users[email]['password_locked'] = True
+        user_db._save_database()
 
         user_db.update_user_access(email, role, dashboards, states)
         return jsonify({
             'status': 'success',
             'message': 'User created successfully',
-            'password': password or result.get('password', ''),
         }), 201
 
     @app.route('/api/admin/users/<path:email>', methods=['PUT'])

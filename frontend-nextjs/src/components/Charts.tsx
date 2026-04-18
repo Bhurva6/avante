@@ -169,12 +169,13 @@ export const HorizontalBarChart: React.FC<ChartProps> = ({
   );
 };
 
-export const RevenuePieChart: React.FC<{ data: any[]; title?: string; loading?: boolean; dataKey: string; nameKey: string }> = ({
+export const RevenuePieChart: React.FC<{ data: any[]; title?: string; loading?: boolean; dataKey: string; nameKey: string; quantityKey?: string }> = ({
   data,
   title = 'Revenue Distribution',
   loading,
   dataKey,
   nameKey,
+  quantityKey,
 }) => {
   if (loading) return <ChartLoader title={title} />;
   if (!data || data.length === 0) return <ChartEmpty title={title} />;
@@ -206,8 +207,20 @@ export const RevenuePieChart: React.FC<{ data: any[]; title?: string; loading?: 
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number, name: string) => [formatTooltipValue(value), name]}
-            wrapperStyle={{ whiteSpace: 'normal', maxWidth: 320 }}
+            content={({ active, payload }) => {
+              if (!active || !payload || !payload.length) return null;
+              const entry = payload[0];
+              const item = entry.payload;
+              return (
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', whiteSpace: 'normal', maxWidth: 280 }}>
+                  <p style={{ fontWeight: 600, marginBottom: 4, color: '#111827' }}>{item[nameKey]}</p>
+                  <p style={{ color: '#374151', margin: 0 }}>Revenue: {formatTooltipValue(item[dataKey])}</p>
+                  {quantityKey && item[quantityKey] != null && (
+                    <p style={{ color: '#6b7280', margin: 0 }}>Qty: {item[quantityKey].toLocaleString()}</p>
+                  )}
+                </div>
+              );
+            }}
           />
         </PieChart>
       </ResponsiveContainer>
