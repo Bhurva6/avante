@@ -84,6 +84,12 @@ USER_DB_FILE = 'users_database.json'
 AVANTE_API_BASE_URL = "http://order.avantemedicals.com/API/api.php"
 IOSPL_API_BASE_URL = "http://order.avantemedicals.com/API/api.php"
 
+# ERP API auth (the sales report endpoints require a bearer token obtained
+# via action=login before they can be called). Set these in the environment
+# — do not hardcode credentials here.
+AVANTE_API_USERNAME = os.getenv('AVANTE_API_USERNAME', '')
+AVANTE_API_PASSWORD = os.getenv('AVANTE_API_PASSWORD', '')
+
 # Logging
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
